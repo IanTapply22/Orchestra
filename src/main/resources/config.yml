@@ -1,0 +1,29 @@
+server:
+  id: "survival-1"
+  groups: ["survival"]
+  tags:
+    game: "survival"
+    region: "na-east"
+
+engine:
+  workers: 4
+  queue-capacity: 256
+
+postgres:
+  enabled: false
+  jdbc-url: "jdbc:postgresql://localhost:5432/orchestra"
+  username: "orchestra"
+  password: "change-me"
+  maximum-pool-size: 8
+
+redis:
+  enabled: false
+  uri: "redis://localhost:6379/0"
+  namespace: "orchestra"
+
+web:
+  enabled: false
+  bind: "127.0.0.1"
+  port: 8787
+  tokens:
+    "replace-with-a-long-random-token": ADMINISTRATOR

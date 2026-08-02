@@ -1,0 +1,30 @@
+id: weekend_double_xp
+display-name: "Double XP Weekend"
+
+schedule:
+  cron: "0 18 * * FRI"
+  timezone: "America/Toronto"
+
+targets:
+  groups: [survival]
+
+stages:
+  - id: announcement
+    duration: 5m
+    actions:
+      - broadcast: "<gold>Double XP begins in 5 minutes!"
+
+  - id: active
+    duration: 48h
+    actions:
+      - type: set_variable
+        key: xp_multiplier
+        value: 2
+      - command: "quests multiplier 2"
+
+  - id: cleanup
+    actions:
+      - type: set_variable
+        key: xp_multiplier
+        value: 1
+      - broadcast: "<yellow>Double XP has ended."
