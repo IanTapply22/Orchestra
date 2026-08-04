@@ -1,5 +1,6 @@
 plugins {
     id("java-library")
+    id("maven-publish")
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.21"
     id("xyz.jpenilla.run-paper") version "3.0.2"
     id("xyz.jpenilla.resource-factory-paper-convention") version "1.3.1"
@@ -34,6 +35,35 @@ paperPluginYaml {
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("plugin") {
+            from(components["java"])
+            artifactId = "orchestra"
+
+            pom {
+                name = "Orchestra"
+                description = project.description.toString()
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            val repository = providers.environmentVariable("GITHUB_REPOSITORY")
+                .orElse("IanTapply22/Orchestra")
+                .get()
+                .lowercase()
+            url = uri("https://maven.pkg.github.com/$repository")
+            credentials {
+                username = providers.environmentVariable("GITHUB_ACTOR").orNull
+                password = providers.environmentVariable("GITHUB_TOKEN").orNull
+            }
+        }
+    }
 }
 
 tasks {

@@ -1,29 +1,30 @@
 name: Submit Dependency Summary
 
-# Triggered on both PRs and pushes to main
 on:
   push:
-    branches: [ "main", "staging" ]
-  pull_request:
-    branches: [ "main", "staging" ]
+    branches: [main, staging]
+
+permissions:
+  contents: write
 
 jobs:
-  # Runs on Ubuntu latest (version 22.04)
   dependency-submission:
-    name: Generate and submit dependency graph
+    name: Generate and submit Gradle dependency graph
     runs-on: ubuntu-latest
     environment: jdk25-flat
-    permissions:
-      contents: write
 
-    # This will run on the JDK environment specified above
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Set up JDK ${{ vars.JAVA_VERSION }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ vars.JAVA_VERSION }}
           distribution: ${{ vars.JAVA_DISTRIBUTION }}
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
       - name: Generate and submit dependency graph
-        uses: advanced-security/maven-dependency-submission-action@v3
+        uses: gradle/actions/dependency-submission@v6

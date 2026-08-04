@@ -2,41 +2,56 @@ name: Deploy Javadoc
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: javadoc-pages
+  cancel-in-progress: true
 
 jobs:
   publish:
+    name: Build and deploy Javadocs
     runs-on: ubuntu-latest
-    environment: jdk25-flat
-    permissions:
-      contents: write  # if you have a protection rule on your repository, you'll need to give write permission to the workflow.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
-      - name: Set up JDK ${{ vars.JAVA_VERSION }}
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
-          java-version: ${{ vars.JAVA_VERSION }}
-          distribution: ${{ vars.JAVA_DISTRIBUTION }}
+          java-version: 25
+          distribution: temurin
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4.3.0
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Generate Javadocs with Gradle
+        run: bash ./gradlew javadoc --no-daemon
+
+      - name: Prepare Pages content
+        run: |
+          mkdir -p build/pages/javadoc
+          cp -R build/docs/javadoc/. build/pages/javadoc/
+          touch build/pages/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          path: build/pages
 
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
-
-      - name: Deploy JavaDoc 🚀
-        uses: MathieuSoysal/Javadoc-publisher.yml@v3.0.2
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          javadoc-branch: javadoc
-          java-version: ${{ vars.JAVA_VERSION }}
-          target-folder: javadoc # url will be https://<username>.github.io/<repo>/javadoc, This can be left as nothing to generate javadocs in the root folder.
-          project: maven # or gradle
+      - name: Deploy Javadocs
+        id: deployment
+        uses: actions/deploy-pages@v4
