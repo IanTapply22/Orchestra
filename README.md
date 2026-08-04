@@ -266,7 +266,7 @@ registry.registerCondition("feature_enabled", context ->
 
 Implementations return `CompletionStage` values. They should avoid blocking the engine worker, honor the stage timeout where possible, and use `ActionContext.idempotencyKey()` when producing external side effects. Lifecycle listeners are called after a status transition is successfully persisted; one failing listener does not prevent later listeners from running.
 
-The generated API documentation is published at [orchestra.iantapply.com/javadoc](http://orchestra.iantapply.com/javadoc/). To build it locally, run `./gradlew javadoc`; the output is written to `build/docs/javadoc`.
+The generated API documentation is published at [orchestra.iantapply.com/javadoc](https://orchestra.iantapply.com/javadoc/). To build it locally, run `./gradlew javadoc`; the output is written to `build/docs/javadoc`.
 
 ## Source layout
 
