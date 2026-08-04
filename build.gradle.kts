@@ -35,6 +35,8 @@ paperPluginYaml {
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
+    withJavadocJar()
 }
 
 publishing {
@@ -46,6 +48,13 @@ publishing {
             pom {
                 name = "Orchestra"
                 description = project.description.toString()
+                url = "https://github.com/IanTapply22/Orchestra"
+
+                scm {
+                    connection = "scm:git:https://github.com/IanTapply22/Orchestra.git"
+                    developerConnection = "scm:git:ssh://git@github.com/IanTapply22/Orchestra.git"
+                    url = "https://github.com/IanTapply22/Orchestra"
+                }
             }
         }
     }
