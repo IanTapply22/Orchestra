@@ -22,11 +22,13 @@ public interface NetworkTransport extends AutoCloseable {
     Subscription subscribe(String channel, Consumer<byte[]> listener);
 
     /** Closes all subscriptions and rejects new work. */
-    @Override void close();
+    @Override
+    void close();
 
     /** Closeable subscription to one logical channel. */
     interface Subscription extends AutoCloseable {
         /** Stops delivery and releases transport resources. */
-        @Override void close();
+        @Override
+        void close();
     }
 }

@@ -1,7 +1,6 @@
 package com.iantapply.orchestra.port;
 
 import com.iantapply.orchestra.api.TargetSelector;
-
 import java.util.Set;
 
 /** Resolves declarative selectors against the current network topology. */

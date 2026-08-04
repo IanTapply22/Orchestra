@@ -1,6 +1,5 @@
 package com.iantapply.orchestra.adapter.postgres;
 
-import lombok.experimental.UtilityClass;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -14,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.experimental.UtilityClass;
 
 /** Compact, dependency-free binary codec for persisted execution maps and sets. */
 @UtilityClass
@@ -41,7 +41,8 @@ class BinaryValueCodec {
     }
 
     private static byte[] write(IoConsumer<DataOutputStream> writer) {
-        try (var bytes = new ByteArrayOutputStream(); var output = new DataOutputStream(bytes)) {
+        try (var bytes = new ByteArrayOutputStream();
+                var output = new DataOutputStream(bytes)) {
             writer.accept(output);
             return bytes.toByteArray();
         } catch (IOException impossible) {
@@ -85,14 +86,16 @@ class BinaryValueCodec {
                 output.writeDouble(number.doubleValue());
             }
             case Map<?, ?> map -> {
-                output.writeByte(6); output.writeInt(map.size());
+                output.writeByte(6);
+                output.writeInt(map.size());
                 for (var entry : map.entrySet()) {
                     output.writeUTF(String.valueOf(entry.getKey()));
                     writeValue(output, entry.getValue());
                 }
             }
             case Collection<?> collection -> {
-                output.writeByte(7); output.writeInt(collection.size());
+                output.writeByte(7);
+                output.writeInt(collection.size());
                 for (Object item : collection) writeValue(output, item);
             }
             default -> {
@@ -111,12 +114,14 @@ class BinaryValueCodec {
             case 4 -> input.readDouble();
             case 5 -> input.readBoolean();
             case 6 -> {
-                int size = input.readInt(); Map<String, Object> map = new LinkedHashMap<>(size);
+                int size = input.readInt();
+                Map<String, Object> map = new LinkedHashMap<>(size);
                 for (int i = 0; i < size; i++) map.put(input.readUTF(), readValue(input));
                 yield map;
             }
             case 7 -> {
-                int size = input.readInt(); List<Object> list = new ArrayList<>(size);
+                int size = input.readInt();
+                List<Object> list = new ArrayList<>(size);
                 for (int i = 0; i < size; i++) list.add(readValue(input));
                 yield list;
             }

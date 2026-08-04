@@ -11,15 +11,14 @@ import org.eclipse.aether.repository.RemoteRepository;
 public final class OrchestraLoader implements PluginLoader {
 
     /** Creates the Paper classpath loader. */
-    public OrchestraLoader() {
-    }
+    public OrchestraLoader() {}
 
     /** Adds HikariCP and the PostgreSQL driver to the Paper plugin classpath. */
     @Override
     public void classloader(final PluginClasspathBuilder builder) {
         MavenLibraryResolver libraries = new MavenLibraryResolver();
-        libraries.addRepository(new RemoteRepository.Builder(
-                "central", "default", "https://repo.maven.apache.org/maven2/").build());
+        libraries.addRepository(
+                new RemoteRepository.Builder("central", "default", "https://repo.maven.apache.org/maven2/").build());
         libraries.addDependency(new Dependency(new DefaultArtifact("com.zaxxer:HikariCP:7.0.2"), null));
         libraries.addDependency(new Dependency(new DefaultArtifact("org.postgresql:postgresql:42.7.12"), null));
         builder.addLibrary(libraries);

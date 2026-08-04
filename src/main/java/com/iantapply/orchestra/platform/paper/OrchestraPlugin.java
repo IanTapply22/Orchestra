@@ -20,9 +20,6 @@ import com.iantapply.orchestra.security.Actor;
 import com.iantapply.orchestra.security.Role;
 import com.iantapply.orchestra.web.OrchestraHttpServer;
 import com.zaxxer.hikari.HikariDataSource;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.time.Clock;
@@ -32,6 +29,8 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
 
 /** Paper entry point. All platform wiring lives here; orchestration behavior does not. */
 public final class OrchestraPlugin extends JavaPlugin {
@@ -39,8 +38,7 @@ public final class OrchestraPlugin extends JavaPlugin {
     private final List<AutoCloseable> resources = new ArrayList<>();
 
     /** Creates the Paper plugin entry point. */
-    public OrchestraPlugin() {
-    }
+    public OrchestraPlugin() {}
 
     /** Wires infrastructure, loads definitions, recovers work, and starts services. */
     @Override
@@ -110,9 +108,7 @@ public final class OrchestraPlugin extends JavaPlugin {
             audit = new PostgresAuditRepository(dataSource);
         }
 
-        DistributedLock locks = getConfig().getBoolean("redis.enabled")
-                ? createRedisLock()
-                : memory;
+        DistributedLock locks = getConfig().getBoolean("redis.enabled") ? createRedisLock() : memory;
         return new Infrastructure(memory, executions, locks, audit);
     }
 
@@ -162,16 +158,18 @@ public final class OrchestraPlugin extends JavaPlugin {
 
     private MetricsRegistry configureMetrics(ExecutionRepository executions) {
         MetricsRegistry metrics = new MetricsRegistry();
-        metrics.gauge("orchestra_active_executions", () -> executions.findActive(10_000).size());
-        engine.addListener((before, after) -> getLogger().info(
-                "Event %s: %s -> %s".formatted(after.id(), before.status(), after.status())));
+        metrics.gauge(
+                "orchestra_active_executions",
+                () -> executions.findActive(10_000).size());
+        engine.addListener((before, after) ->
+                getLogger().info("Event %s: %s -> %s".formatted(after.id(), before.status(), after.status())));
         engine.addListener((before, after) -> metrics.increment("orchestra_event_transitions_total"));
         return metrics;
     }
 
     private void startRecurringScheduler(Infrastructure infrastructure, Clock clock) {
-        RecurringEventScheduler scheduler = new RecurringEventScheduler(
-                infrastructure.definitions(), engine, infrastructure.locks(), clock);
+        RecurringEventScheduler scheduler =
+                new RecurringEventScheduler(infrastructure.definitions(), engine, infrastructure.locks(), clock);
         scheduler.start();
         resources.add(scheduler);
     }
@@ -183,12 +181,8 @@ public final class OrchestraPlugin extends JavaPlugin {
 
         try {
             InetSocketAddress address = new InetSocketAddress(
-                    getConfig().getString("web.bind", "127.0.0.1"),
-                    getConfig().getInt("web.port", 8787));
-            OrchestraHttpServer web = new OrchestraHttpServer(
-                    address,
-                    metrics,
-                    apiTokens());
+                    getConfig().getString("web.bind", "127.0.0.1"), getConfig().getInt("web.port", 8787));
+            OrchestraHttpServer web = new OrchestraHttpServer(address, metrics, apiTokens());
             web.start();
             resources.add(web);
         } catch (Exception failure) {
@@ -216,6 +210,5 @@ public final class OrchestraPlugin extends JavaPlugin {
             DefinitionRepository definitions,
             ExecutionRepository executions,
             DistributedLock locks,
-            AuditRepository audit) {
-    }
+            AuditRepository audit) {}
 }

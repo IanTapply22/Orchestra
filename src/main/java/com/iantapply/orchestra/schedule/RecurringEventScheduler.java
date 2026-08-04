@@ -37,8 +37,8 @@ public final class RecurringEventScheduler implements AutoCloseable {
      * @param locks lease provider used to deduplicate occurrences
      * @param clock scheduler clock
      */
-    public RecurringEventScheduler(DefinitionRepository definitions, OrchestratorEngine engine,
-                                   DistributedLock locks, Clock clock) {
+    public RecurringEventScheduler(
+            DefinitionRepository definitions, OrchestratorEngine engine, DistributedLock locks, Clock clock) {
         this.definitions = definitions;
         this.engine = engine;
         this.locks = locks;
@@ -75,7 +75,8 @@ public final class RecurringEventScheduler implements AutoCloseable {
             if (!localOccurrences.add(occurrence)) {
                 continue;
             }
-            try (var lease = locks.tryAcquire("cron:" + occurrence, Duration.ofMinutes(2)).orElse(null)) {
+            try (var lease = locks.tryAcquire("cron:" + occurrence, Duration.ofMinutes(2))
+                    .orElse(null)) {
                 if (lease != null) {
                     engine.schedule(event.id(), minute, Map.of("scheduled_at", minute.toString()));
                 }

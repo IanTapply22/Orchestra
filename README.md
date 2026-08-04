@@ -17,12 +17,36 @@ PostgreSQL, Redis, and the HTTP listener are optional and disabled by default. W
 Build and test the project with the included Gradle wrapper:
 
 ```shell
-./gradlew clean test jar javadoc
+./gradlew clean lint test jar javadoc
 ```
 
 The plugin JAR is written to `build/libs`. Copy that same JAR into the `plugins` directory of every Paper/Folia backend and every Velocity proxy that should participate. The JAR contains both `paper-plugin.yml` and `velocity-plugin.json`; each platform loads only its own entry point.
 
 Paper resolves HikariCP and the PostgreSQL JDBC driver through its plugin classpath loader. Lombok is compile-time only and is not included in the finished JAR. If IntelliJ reports unresolved generated constructors, enable annotation processing and reload the Gradle project.
+
+### Formatting and linting
+
+Run the formatter check without changing files:
+
+```shell
+./gradlew lint
+```
+
+Apply formatting fixes with either `./gradlew lintFix` or `./gradlew spotlessApply`. Formatting covers Java sources and tests, Gradle Kotlin scripts, Markdown, YAML, properties, SQL, and repository shell hooks.
+
+Install the tracked pre-commit hook once for the current Git checkout:
+
+```shell
+./gradlew installGitHooks
+```
+
+The hook runs `lint` before each commit and blocks the commit when formatting violations exist. It never modifies or stages files automatically.
+
+### Tests and coverage
+
+`./gradlew test` runs the unit and local integration suite and automatically generates a JaCoCo report at `build/reports/jacoco/test/html/index.html`. The suite covers domain validation, engine lifecycle and recovery, retries and idempotency, YAML and cron parsing, in-memory and JDBC repositories, migrations, Redis RESP/leases/Pub/Sub, HTTP authentication, Velocity commands, Paper target selection, Discord webhooks, audit history, metrics, and RBAC.
+
+Paper/Folia and Velocity lifecycle bootstraps still require smoke testing on their real server runtimes; the automated suite tests the platform-neutral services and adapters those entry points assemble.
 
 ## Quick start
 

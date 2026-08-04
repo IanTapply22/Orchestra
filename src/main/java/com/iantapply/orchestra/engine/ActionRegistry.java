@@ -2,7 +2,6 @@ package com.iantapply.orchestra.engine;
 
 import com.iantapply.orchestra.api.OrchestraAction;
 import com.iantapply.orchestra.api.OrchestraCondition;
-
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -13,8 +12,7 @@ public final class ActionRegistry {
     private final ConcurrentMap<String, OrchestraCondition> conditions = new ConcurrentHashMap<>();
 
     /** Creates an empty registry. */
-    public ActionRegistry() {
-    }
+    public ActionRegistry() {}
 
     /**
      * Registers a unique action type.

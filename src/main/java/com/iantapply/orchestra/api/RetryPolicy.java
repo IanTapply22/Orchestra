@@ -17,9 +17,11 @@ public record RetryPolicy(int maxAttempts, Duration initialDelay, double multipl
     /** Validates retry bounds and delay ordering. */
     public RetryPolicy {
         if (maxAttempts < 1) throw new IllegalArgumentException("maxAttempts must be positive");
-        if (initialDelay.isNegative() || initialDelay.isZero()) throw new IllegalArgumentException("initialDelay must be positive");
+        if (initialDelay.isNegative() || initialDelay.isZero())
+            throw new IllegalArgumentException("initialDelay must be positive");
         if (multiplier < 1.0) throw new IllegalArgumentException("multiplier must be >= 1");
-        if (maximumDelay.compareTo(initialDelay) < 0) throw new IllegalArgumentException("maximumDelay must be >= initialDelay");
+        if (maximumDelay.compareTo(initialDelay) < 0)
+            throw new IllegalArgumentException("maximumDelay must be >= initialDelay");
     }
 
     /**

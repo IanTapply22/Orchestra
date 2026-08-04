@@ -1,11 +1,10 @@
 package com.iantapply.orchestra.platform.paper;
 
 import io.papermc.paper.event.connection.PlayerConnectionValidateLoginEvent;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Thread-safe server-local gate that rejects new connections while disabled. */
 public final class JoinGate implements Listener {
@@ -13,8 +12,7 @@ public final class JoinGate implements Listener {
     private final AtomicBoolean enabled = new AtomicBoolean(true);
 
     /** Creates an enabled join gate. */
-    public JoinGate() {
-    }
+    public JoinGate() {}
 
     /**
      * Updates the gate state.
@@ -33,11 +31,7 @@ public final class JoinGate implements Listener {
     @EventHandler
     public void onLogin(PlayerConnectionValidateLoginEvent event) {
         if (!enabled.get()) {
-            event.kickMessage(
-                    MINI_MESSAGE.deserialize(
-                            "<red>This server is temporarily unavailable for an event."
-                    )
-            );
+            event.kickMessage(MINI_MESSAGE.deserialize("<red>This server is temporarily unavailable for an event."));
         }
     }
 }

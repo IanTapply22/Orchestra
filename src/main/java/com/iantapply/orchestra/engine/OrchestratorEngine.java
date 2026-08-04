@@ -10,7 +10,6 @@ import com.iantapply.orchestra.port.DefinitionRepository;
 import com.iantapply.orchestra.port.DistributedLock;
 import com.iantapply.orchestra.port.ExecutionRepository;
 import com.iantapply.orchestra.port.TargetResolver;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,17 +54,28 @@ public final class OrchestratorEngine implements AutoCloseable {
      * @param workerCount number of concurrent execution workers
      * @param queueCapacity maximum queued execution tasks
      */
-    public OrchestratorEngine(DefinitionRepository definitions, ExecutionRepository executions,
-                              DistributedLock locks, TargetResolver targets, ActionRegistry registry,
-                              Clock clock, int workerCount, int queueCapacity) {
+    public OrchestratorEngine(
+            DefinitionRepository definitions,
+            ExecutionRepository executions,
+            DistributedLock locks,
+            TargetResolver targets,
+            ActionRegistry registry,
+            Clock clock,
+            int workerCount,
+            int queueCapacity) {
         this.definitions = definitions;
         this.executions = executions;
         this.locks = locks;
         this.clock = clock;
         this.stageExecutor = new StageExecutor(registry, targets, clock, this::replace);
         this.timer = Executors.newSingleThreadScheduledExecutor(namedFactory("orchestra-timer-"));
-        this.workers = new ThreadPoolExecutor(workerCount, workerCount, 30, TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(queueCapacity), namedFactory("orchestra-worker-"),
+        this.workers = new ThreadPoolExecutor(
+                workerCount,
+                workerCount,
+                30,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(queueCapacity),
+                namedFactory("orchestra-worker-"),
                 new ThreadPoolExecutor.CallerRunsPolicy());
         this.workers.allowCoreThreadTimeOut(true);
     }
@@ -86,7 +96,9 @@ public final class OrchestratorEngine implements AutoCloseable {
      * @return new execution identifier
      */
     public UUID schedule(String definitionId, Instant startAt, Map<String, Object> variables) {
-        definitions.find(definitionId).orElseThrow(() -> new IllegalArgumentException("Unknown event: " + definitionId));
+        definitions
+                .find(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown event: " + definitionId));
         Instant now = clock.instant();
         EventExecution base = EventExecution.scheduled(UUID.randomUUID(), definitionId, now, startAt);
         EventExecution execution = base.withVariables(variables, now);
@@ -129,8 +141,13 @@ public final class OrchestratorEngine implements AutoCloseable {
      * @return whether the execution was found and atomically resumed
      */
     public boolean resume(UUID id) {
-        return update(id, old -> transition(old, old.stageIndex() < 0 ? EventStatus.SCHEDULED : EventStatus.RUNNING,
-                old.stageIndex(), clock.instant()));
+        return update(
+                id,
+                old -> transition(
+                        old,
+                        old.stageIndex() < 0 ? EventStatus.SCHEDULED : EventStatus.RUNNING,
+                        old.stageIndex(),
+                        clock.instant()));
     }
 
     /**
@@ -200,15 +217,19 @@ public final class OrchestratorEngine implements AutoCloseable {
     }
 
     private void process(UUID id) {
-        try (DistributedLock.Lease ignored = locks.tryAcquire("execution:" + id, LEASE_TIME).orElse(null)) {
+        try (DistributedLock.Lease ignored =
+                locks.tryAcquire("execution:" + id, LEASE_TIME).orElse(null)) {
             if (ignored == null) {
                 return;
             }
             EventExecution current = executions.find(id).orElse(null);
-            if (current == null || current.status() == EventStatus.PAUSED || current.status() == EventStatus.CANCELLED) {
+            if (current == null
+                    || current.status() == EventStatus.PAUSED
+                    || current.status() == EventStatus.CANCELLED) {
                 return;
             }
-            EventDefinition definition = definitions.find(current.definitionId()).orElseThrow();
+            EventDefinition definition =
+                    definitions.find(current.definitionId()).orElseThrow();
             if (current.status() == EventStatus.SCHEDULED) {
                 EventExecution starting = transition(current, EventStatus.STARTING, 0, clock.instant());
                 if (!replace(current, starting)) {
@@ -232,9 +253,19 @@ public final class OrchestratorEngine implements AutoCloseable {
             }
             current = stageExecutor.executeActions(current, definition, stage);
             Instant due = clock.instant().plus(stage.duration());
-            EventExecution advanced = new EventExecution(current.id(), current.definitionId(), EventStatus.RUNNING,
-                    stageIndex, current.version() + 1, current.createdAt(), clock.instant(), due, clock.instant(),
-                    current.variables(), current.completedActions(), null);
+            EventExecution advanced = new EventExecution(
+                    current.id(),
+                    current.definitionId(),
+                    EventStatus.RUNNING,
+                    stageIndex,
+                    current.version() + 1,
+                    current.createdAt(),
+                    clock.instant(),
+                    due,
+                    clock.instant(),
+                    current.variables(),
+                    current.completedActions(),
+                    null);
             replace(current, advanced);
         } catch (Throwable failure) {
             executions.find(id).ifPresent(current -> fail(current, rootMessage(failure)));

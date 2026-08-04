@@ -1,7 +1,6 @@
 package com.iantapply.orchestra.engine;
 
 import com.iantapply.orchestra.api.EventStatus;
-
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -15,8 +14,14 @@ public final class EventStateMachine {
         ALLOWED.put(EventStatus.DRAFT, EnumSet.of(EventStatus.SCHEDULED, EventStatus.CANCELLED));
         ALLOWED.put(EventStatus.SCHEDULED, EnumSet.of(EventStatus.STARTING, EventStatus.PAUSED, EventStatus.CANCELLED));
         ALLOWED.put(EventStatus.STARTING, EnumSet.of(EventStatus.RUNNING, EventStatus.FAILED, EventStatus.CANCELLED));
-        ALLOWED.put(EventStatus.RUNNING, EnumSet.of(EventStatus.RUNNING, EventStatus.PAUSED, EventStatus.COMPLETED,
-                EventStatus.FAILED, EventStatus.CANCELLED));
+        ALLOWED.put(
+                EventStatus.RUNNING,
+                EnumSet.of(
+                        EventStatus.RUNNING,
+                        EventStatus.PAUSED,
+                        EventStatus.COMPLETED,
+                        EventStatus.FAILED,
+                        EventStatus.CANCELLED));
         ALLOWED.put(EventStatus.PAUSED, EnumSet.of(EventStatus.SCHEDULED, EventStatus.RUNNING, EventStatus.CANCELLED));
         ALLOWED.put(EventStatus.FAILED, EnumSet.of(EventStatus.SCHEDULED, EventStatus.CANCELLED));
         ALLOWED.put(EventStatus.COMPLETED, EnumSet.noneOf(EventStatus.class));
@@ -24,8 +29,7 @@ public final class EventStateMachine {
     }
 
     /** Creates a validator for the fixed Orchestra transition graph. */
-    public EventStateMachine() {
-    }
+    public EventStateMachine() {}
 
     /**
      * Rejects a transition that is not present in the transition graph.

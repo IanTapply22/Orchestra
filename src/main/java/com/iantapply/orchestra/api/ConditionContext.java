@@ -20,8 +20,7 @@ public record ConditionContext(
         StageDefinition stage,
         ConditionSpec condition,
         Instant now,
-        Map<String, Object> variables
-) {
+        Map<String, Object> variables) {
     /** Snapshots the variable map for safe asynchronous evaluation. */
     public ConditionContext {
         variables = Map.copyOf(variables);

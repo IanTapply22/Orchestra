@@ -23,9 +23,11 @@ final class RespConnection implements AutoCloseable {
     private final OutputStream output;
 
     RespConnection(URI uri, Duration timeout) throws IOException {
-        if (!"redis".equalsIgnoreCase(uri.getScheme())) throw new IllegalArgumentException("Only redis:// URIs are supported");
+        if (!"redis".equalsIgnoreCase(uri.getScheme()))
+            throw new IllegalArgumentException("Only redis:// URIs are supported");
         socket = new Socket();
-        socket.connect(new InetSocketAddress(uri.getHost(), uri.getPort() < 0 ? 6379 : uri.getPort()), (int) timeout.toMillis());
+        socket.connect(new InetSocketAddress(uri.getHost(), uri.getPort() < 0 ? 6379 : uri.getPort()), (int)
+                timeout.toMillis());
         socket.setSoTimeout((int) timeout.toMillis());
         socket.setTcpNoDelay(true);
         input = new BufferedInputStream(socket.getInputStream(), 8_192);
@@ -97,8 +99,10 @@ final class RespConnection implements AutoCloseable {
     private void authenticate(URI uri) throws IOException {
         if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
             String[] credentials = uri.getUserInfo().split(":", 2);
-            command(strings(credentials.length == 1 ? new String[]{"AUTH", credentials[0]}
-                    : new String[]{"AUTH", credentials[0], credentials[1]}));
+            command(strings(
+                    credentials.length == 1
+                            ? new String[] {"AUTH", credentials[0]}
+                            : new String[] {"AUTH", credentials[0], credentials[1]}));
         }
         String path = uri.getPath();
         if (path != null && path.length() > 1) command(strings("SELECT", path.substring(1)));

@@ -11,8 +11,7 @@ public final class MetricsRegistry {
     private final Map<String, DoubleSupplier> gauges = new ConcurrentHashMap<>();
 
     /** Creates an empty metrics registry. */
-    public MetricsRegistry() {
-    }
+    public MetricsRegistry() {}
 
     /**
      * Increments a counter by one.
@@ -44,10 +43,12 @@ public final class MetricsRegistry {
         StringBuilder output = new StringBuilder(512);
         counters.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> appendMetric(output, entry.getKey(), entry.getValue().sum()));
+                .forEach(entry ->
+                        appendMetric(output, entry.getKey(), entry.getValue().sum()));
         gauges.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> appendMetric(output, entry.getKey(), entry.getValue().getAsDouble()));
+                .forEach(entry ->
+                        appendMetric(output, entry.getKey(), entry.getValue().getAsDouble()));
         return output.toString();
     }
 

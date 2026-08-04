@@ -5,8 +5,7 @@ import org.bukkit.plugin.Plugin;
 
 /** Small compatibility layer for Paper and Folia scheduler behavior. */
 public final class FoliaSupport {
-    private FoliaSupport() {
-    }
+    private FoliaSupport() {}
 
     /**
      * Detects the active scheduler implementation.

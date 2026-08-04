@@ -28,7 +28,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build with Gradle
-        run: bash ./gradlew clean test jar javadoc --no-daemon
+        run: bash ./gradlew clean lint test jar javadoc --no-daemon
 
   macos:
     name: Build macOS Latest
@@ -51,7 +51,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build with Gradle
-        run: bash ./gradlew clean test jar javadoc --no-daemon
+        run: bash ./gradlew clean lint test jar javadoc --no-daemon
 
   windows:
     name: Build Windows Latest
@@ -74,4 +74,4 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build with Gradle
-        run: .\gradlew.bat clean test jar javadoc --no-daemon
+        run: .\gradlew.bat clean lint test jar javadoc --no-daemon

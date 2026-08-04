@@ -2,10 +2,10 @@ package com.iantapply.orchestra.adapter.postgres;
 
 import com.iantapply.orchestra.audit.AuditEntry;
 import com.iantapply.orchestra.audit.AuditRepository;
-import javax.sql.DataSource;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import javax.sql.DataSource;
 
 /** PostgreSQL-backed audit repository. */
 public final class PostgresAuditRepository implements AuditRepository {
@@ -22,8 +22,10 @@ public final class PostgresAuditRepository implements AuditRepository {
 
     @Override
     public void append(AuditEntry entry) {
-        String sql = "INSERT INTO audit_log(occurred_at,actor,action,resource,detail,remote_address) VALUES (?,?,?,?,?,?)";
-        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+        String sql =
+                "INSERT INTO audit_log(occurred_at,actor,action,resource,detail,remote_address) VALUES (?,?,?,?,?,?)";
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(sql)) {
             statement.setTimestamp(1, Timestamp.from(entry.occurredAt()));
             statement.setString(2, entry.actor());
             statement.setString(3, entry.action());
@@ -38,8 +40,10 @@ public final class PostgresAuditRepository implements AuditRepository {
 
     @Override
     public List<AuditEntry> recent(int limit) {
-        String sql = "SELECT occurred_at,actor,action,resource,detail,remote_address FROM audit_log ORDER BY sequence DESC LIMIT ?";
-        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+        String sql =
+                "SELECT occurred_at,actor,action,resource,detail,remote_address FROM audit_log ORDER BY sequence DESC LIMIT ?";
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(sql)) {
             statement.setInt(1, Math.clamp(limit, 1, 1_000));
             List<AuditEntry> result = new ArrayList<>();
             try (var rows = statement.executeQuery()) {

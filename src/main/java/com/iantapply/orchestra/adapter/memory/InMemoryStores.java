@@ -6,7 +6,6 @@ import com.iantapply.orchestra.domain.EventExecution;
 import com.iantapply.orchestra.port.DefinitionRepository;
 import com.iantapply.orchestra.port.DistributedLock;
 import com.iantapply.orchestra.port.ExecutionRepository;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -28,8 +27,7 @@ public final class InMemoryStores implements DefinitionRepository, ExecutionRepo
     private final ConcurrentMap<String, LocalLease> locks = new ConcurrentHashMap<>();
 
     /** Creates empty in-memory definition, execution, and lease stores. */
-    public InMemoryStores() {
-    }
+    public InMemoryStores() {}
 
     @Override
     public void save(EventDefinition definition) {
@@ -58,21 +56,23 @@ public final class InMemoryStores implements DefinitionRepository, ExecutionRepo
         return Optional.ofNullable(executions.get(id));
     }
 
-    @Override public Collection<EventExecution> findDue(Instant now, int limit) {
+    @Override
+    public Collection<EventExecution> findDue(Instant now, int limit) {
         return executions.values().stream()
                 .filter(e -> e.dueAt() != null && !e.dueAt().isAfter(now))
                 .filter(this::isRunnable)
                 .sorted(Comparator.comparing(EventExecution::dueAt))
-                .limit(limit).toList();
+                .limit(limit)
+                .toList();
     }
 
-    @Override public Collection<EventExecution> findActive(int limit) {
-        return executions.values().stream()
-                .filter(this::isActive)
-                .limit(limit).toList();
+    @Override
+    public Collection<EventExecution> findActive(int limit) {
+        return executions.values().stream().filter(this::isActive).limit(limit).toList();
     }
 
-    @Override public boolean compareAndSet(long expectedVersion, EventExecution replacement) {
+    @Override
+    public boolean compareAndSet(long expectedVersion, EventExecution replacement) {
         AtomicBoolean changed = new AtomicBoolean();
         executions.computeIfPresent(replacement.id(), (ignored, current) -> {
             if (current.version() != expectedVersion) return current;
@@ -82,11 +82,12 @@ public final class InMemoryStores implements DefinitionRepository, ExecutionRepo
         return changed.get();
     }
 
-    @Override public Optional<Lease> tryAcquire(String key, Duration duration) {
+    @Override
+    public Optional<Lease> tryAcquire(String key, Duration duration) {
         Instant now = Instant.now();
         LocalLease offered = new LocalLease(key, now.plus(duration));
-        LocalLease result = locks.compute(key, (ignored, current) ->
-                current == null || current.expiresAt.isBefore(now) ? offered : current);
+        LocalLease result = locks.compute(
+                key, (ignored, current) -> current == null || current.expiresAt.isBefore(now) ? offered : current);
         return result == offered ? Optional.of(offered) : Optional.empty();
     }
 
@@ -104,6 +105,7 @@ public final class InMemoryStores implements DefinitionRepository, ExecutionRepo
     private final class LocalLease implements Lease {
         private final String key;
         private volatile Instant expiresAt;
+
         private LocalLease(String key, Instant expiresAt) {
             this.key = key;
             this.expiresAt = expiresAt;

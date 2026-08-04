@@ -66,8 +66,11 @@ public final class CronExpression {
 
     private boolean matches(ZonedDateTime value) {
         int weekday = value.getDayOfWeek().getValue() % 7;
-        return minutes.get(value.getMinute()) && hours.get(value.getHour()) && days.get(value.getDayOfMonth())
-                && months.get(value.getMonthValue()) && weekdays.get(weekday);
+        return minutes.get(value.getMinute())
+                && hours.get(value.getHour())
+                && days.get(value.getDayOfMonth())
+                && months.get(value.getMonthValue())
+                && weekdays.get(weekday);
     }
 
     private static BitSet parse(String field, int minimum, int maximum, Map<String, Integer> names) {
@@ -76,7 +79,8 @@ public final class CronExpression {
             String[] stepped = part.split("/", 2);
             int step = stepped.length == 2 ? Integer.parseInt(stepped[1]) : 1;
             if (step < 1) throw new IllegalArgumentException("Cron step must be positive");
-            int start; int end;
+            int start;
+            int end;
             if ("*".equals(stepped[0])) {
                 start = minimum;
                 end = maximum;
@@ -103,14 +107,21 @@ public final class CronExpression {
         Integer named = names.get(value);
         return named == null ? Integer.parseInt(value) : named;
     }
+
     private static Map<String, Integer> names(Month[] values) {
         Map<String, Integer> result = new HashMap<>();
-        for (Month value : values) result.put(value.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toUpperCase(Locale.ROOT), value.getValue());
+        for (Month value : values)
+            result.put(
+                    value.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toUpperCase(Locale.ROOT), value.getValue());
         return result;
     }
+
     private static Map<String, Integer> weekdayNames() {
         Map<String, Integer> result = new HashMap<>();
-        for (DayOfWeek value : DayOfWeek.values()) result.put(value.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toUpperCase(Locale.ROOT), value.getValue() % 7);
+        for (DayOfWeek value : DayOfWeek.values())
+            result.put(
+                    value.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).toUpperCase(Locale.ROOT),
+                    value.getValue() % 7);
         return result;
     }
 }

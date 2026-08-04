@@ -23,8 +23,7 @@ public record ActionContext(
         ActionSpec action,
         String server,
         Instant now,
-        Map<String, Object> variables
-) {
+        Map<String, Object> variables) {
     /** Validates required values and snapshots the variable map. */
     public ActionContext {
         Objects.requireNonNull(executionId);

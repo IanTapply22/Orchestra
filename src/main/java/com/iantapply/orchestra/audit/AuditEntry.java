@@ -13,10 +13,4 @@ import java.time.Instant;
  * @param remoteAddress request origin, when available
  */
 public record AuditEntry(
-        Instant occurredAt,
-        String actor,
-        String action,
-        String resource,
-        String detail,
-        String remoteAddress
-) { }
+        Instant occurredAt, String actor, String action, String resource, String detail, String remoteAddress) {}

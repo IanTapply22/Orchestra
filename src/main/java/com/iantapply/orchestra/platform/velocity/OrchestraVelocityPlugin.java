@@ -2,16 +2,16 @@ package com.iantapply.orchestra.platform.velocity;
 
 import com.google.inject.Inject;
 import com.iantapply.orchestra.adapter.redis.RedisTransport;
+import com.iantapply.orchestra.velocity.ProxyFacade;
 import com.iantapply.orchestra.velocity.VelocityAgent;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
-import org.slf4j.Logger;
-
 import java.net.URI;
 import java.util.UUID;
+import org.slf4j.Logger;
 
 /** Velocity bootstrap for the proxy-side Orchestra agent. */
 @Plugin(id = "orchestra", name = "Orchestra", version = "1.0.0", authors = "Gucci Fox")
@@ -61,7 +61,7 @@ public final class OrchestraVelocityPlugin {
     }
 
     /** Adapts Velocity's API to the transport-independent proxy facade. */
-    private final class VelocityFacade implements VelocityAgent.ProxyFacade {
+    private final class VelocityFacade implements ProxyFacade {
         @Override
         public int onlinePlayers() {
             return proxy.getPlayerCount();
@@ -72,7 +72,8 @@ public final class OrchestraVelocityPlugin {
             try {
                 var player = proxy.getPlayer(UUID.fromString(playerId));
                 var server = proxy.getServer(serverId);
-                if (player.isPresent() && server.isPresent()) player.get().createConnectionRequest(server.get()).fireAndForget();
+                if (player.isPresent() && server.isPresent())
+                    player.get().createConnectionRequest(server.get()).fireAndForget();
             } catch (IllegalArgumentException invalid) {
                 logger.warn("Rejected invalid Orchestra move request", invalid);
             }

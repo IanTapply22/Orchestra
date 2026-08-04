@@ -9,8 +9,7 @@ import java.util.regex.Pattern;
 public final class DurationParser {
     private static final Pattern PART = Pattern.compile("(\\d+)(ms|s|m|h|d)");
 
-    private DurationParser() {
-    }
+    private DurationParser() {}
 
     /**
      * Parses a supported duration representation.
@@ -29,14 +28,16 @@ public final class DurationParser {
         while (matcher.find()) {
             if (matcher.start() != end) throw new IllegalArgumentException("Invalid duration: " + value);
             long amount = Long.parseLong(matcher.group(1));
-            millis = Math.addExact(millis, switch (matcher.group(2)) {
-                case "ms" -> amount;
-                case "s" -> Math.multiplyExact(amount, 1_000);
-                case "m" -> Math.multiplyExact(amount, 60_000);
-                case "h" -> Math.multiplyExact(amount, 3_600_000);
-                case "d" -> Math.multiplyExact(amount, 86_400_000);
-                default -> throw new IllegalStateException();
-            });
+            millis = Math.addExact(
+                    millis,
+                    switch (matcher.group(2)) {
+                        case "ms" -> amount;
+                        case "s" -> Math.multiplyExact(amount, 1_000);
+                        case "m" -> Math.multiplyExact(amount, 60_000);
+                        case "h" -> Math.multiplyExact(amount, 3_600_000);
+                        case "d" -> Math.multiplyExact(amount, 86_400_000);
+                        default -> throw new IllegalStateException();
+                    });
             end = matcher.end();
         }
         if (end != value.length()) throw new IllegalArgumentException("Invalid duration: " + value);

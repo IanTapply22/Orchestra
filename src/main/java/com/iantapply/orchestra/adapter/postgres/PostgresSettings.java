@@ -2,7 +2,6 @@ package com.iantapply.orchestra.adapter.postgres;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-
 import java.time.Duration;
 
 /**
@@ -16,7 +15,8 @@ import java.time.Duration;
 public record PostgresSettings(String jdbcUrl, String username, String password, int maximumPoolSize) {
     /** Validates the JDBC URL and normalizes the pool size. */
     public PostgresSettings {
-        if (!jdbcUrl.startsWith("jdbc:postgresql:")) throw new IllegalArgumentException("A PostgreSQL JDBC URL is required");
+        if (!jdbcUrl.startsWith("jdbc:postgresql:"))
+            throw new IllegalArgumentException("A PostgreSQL JDBC URL is required");
         if (maximumPoolSize < 1) throw new IllegalArgumentException("maximumPoolSize must be positive");
     }
 

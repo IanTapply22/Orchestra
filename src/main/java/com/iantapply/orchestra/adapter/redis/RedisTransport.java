@@ -1,9 +1,6 @@
 package com.iantapply.orchestra.adapter.redis;
 
 import com.iantapply.orchestra.port.NetworkTransport;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -12,6 +9,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 
 /** Redis Pub/Sub transport with daemon subscription threads and reconnect handling. */
 public final class RedisTransport implements NetworkTransport {
@@ -35,7 +34,8 @@ public final class RedisTransport implements NetworkTransport {
     public void publish(String channel, byte[] payload) {
         requireOpen();
         try (var connection = new RespConnection(uri, Duration.ofSeconds(3))) {
-            connection.command("PUBLISH".getBytes(StandardCharsets.UTF_8), key(channel).getBytes(StandardCharsets.UTF_8), payload);
+            connection.command(
+                    "PUBLISH".getBytes(StandardCharsets.UTF_8), key(channel).getBytes(StandardCharsets.UTF_8), payload);
         } catch (Exception failure) {
             throw new IllegalStateException("Could not publish Redis message", failure);
         }
@@ -74,6 +74,7 @@ public final class RedisTransport implements NetworkTransport {
         private final Consumer<byte[]> listener;
         private final AtomicBoolean active = new AtomicBoolean(true);
         private volatile RespConnection connection;
+
         private void start() {
             Thread.ofPlatform().daemon().name("orchestra-redis-sub").start(this);
         }

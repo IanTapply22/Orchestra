@@ -1,7 +1,6 @@
 package com.iantapply.orchestra.domain;
 
 import com.iantapply.orchestra.api.EventStatus;
-
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
@@ -35,8 +34,7 @@ public record EventExecution(
         Instant stageStartedAt,
         Map<String, Object> variables,
         Set<String> completedActions,
-        String failure
-) {
+        String failure) {
     /** Snapshots mutable collections before execution state is shared. */
     public EventExecution {
         variables = Map.copyOf(variables);
@@ -53,8 +51,8 @@ public record EventExecution(
      * @return new scheduled execution
      */
     public static EventExecution scheduled(UUID id, String definitionId, Instant now, Instant dueAt) {
-        return new EventExecution(id, definitionId, EventStatus.SCHEDULED, -1, 0, now, now, dueAt, null,
-                Map.of(), Set.of(), null);
+        return new EventExecution(
+                id, definitionId, EventStatus.SCHEDULED, -1, 0, now, now, dueAt, null, Map.of(), Set.of(), null);
     }
 
     /**
@@ -67,8 +65,19 @@ public record EventExecution(
      * @return incremented immutable execution
      */
     public EventExecution transition(EventStatus next, int nextStage, Instant now, Instant nextDueAt) {
-        return new EventExecution(id, definitionId, next, nextStage, version + 1, createdAt, now, nextDueAt,
-                nextStage == stageIndex ? stageStartedAt : now, variables, completedActions, failure);
+        return new EventExecution(
+                id,
+                definitionId,
+                next,
+                nextStage,
+                version + 1,
+                createdAt,
+                now,
+                nextDueAt,
+                nextStage == stageIndex ? stageStartedAt : now,
+                variables,
+                completedActions,
+                failure);
     }
 
     /**
@@ -79,8 +88,19 @@ public record EventExecution(
      * @return incremented failed execution
      */
     public EventExecution withFailure(String message, Instant now) {
-        return new EventExecution(id, definitionId, EventStatus.FAILED, stageIndex, version + 1, createdAt, now,
-                null, stageStartedAt, variables, completedActions, message);
+        return new EventExecution(
+                id,
+                definitionId,
+                EventStatus.FAILED,
+                stageIndex,
+                version + 1,
+                createdAt,
+                now,
+                null,
+                stageStartedAt,
+                variables,
+                completedActions,
+                message);
     }
 
     /**
@@ -93,8 +113,19 @@ public record EventExecution(
     public EventExecution withCompletedAction(String key, Instant now) {
         var updated = new java.util.HashSet<>(completedActions);
         updated.add(key);
-        return new EventExecution(id, definitionId, status, stageIndex, version + 1, createdAt, now, dueAt,
-                stageStartedAt, variables, updated, failure);
+        return new EventExecution(
+                id,
+                definitionId,
+                status,
+                stageIndex,
+                version + 1,
+                createdAt,
+                now,
+                dueAt,
+                stageStartedAt,
+                variables,
+                updated,
+                failure);
     }
 
     /**
@@ -105,7 +136,18 @@ public record EventExecution(
      * @return incremented execution with an immutable variable snapshot
      */
     public EventExecution withVariables(Map<String, Object> nextVariables, Instant now) {
-        return new EventExecution(id, definitionId, status, stageIndex, version + 1, createdAt, now, dueAt,
-                stageStartedAt, nextVariables, completedActions, failure);
+        return new EventExecution(
+                id,
+                definitionId,
+                status,
+                stageIndex,
+                version + 1,
+                createdAt,
+                now,
+                dueAt,
+                stageStartedAt,
+                nextVariables,
+                completedActions,
+                failure);
     }
 }

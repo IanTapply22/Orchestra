@@ -7,9 +7,6 @@ import com.iantapply.orchestra.api.RecurringSchedule;
 import com.iantapply.orchestra.api.RetryPolicy;
 import com.iantapply.orchestra.api.StageDefinition;
 import com.iantapply.orchestra.api.TargetSelector;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,12 +17,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 /** Loads and validates event definitions from Bukkit-compatible YAML files. */
 public final class YamlEventLoader {
     /** Creates a stateless YAML event loader. */
-    public YamlEventLoader() {
-    }
+    public YamlEventLoader() {}
 
     /**
      * Loads one event definition.
@@ -54,9 +52,12 @@ public final class YamlEventLoader {
             Map<?, ?> stage = map(item);
             List<ActionSpec> actions = actions(list(stage.get("actions")));
             List<ConditionSpec> conditions = conditions(list(stage.get("conditions")));
-            stages.add(new StageDefinition(required(stage, "id"), DurationParser.parse(stage.get("duration")),
+            stages.add(new StageDefinition(
+                    required(stage, "id"),
+                    DurationParser.parse(stage.get("duration")),
                     stage.containsKey("timeout") ? DurationParser.parse(stage.get("timeout")) : null,
-                    conditions, actions));
+                    conditions,
+                    actions));
         }
         return new EventDefinition(id, name, schedule, target, stages);
     }
@@ -86,8 +87,13 @@ public final class YamlEventLoader {
         for (Object value : values) {
             Map<?, ?> raw = map(value);
             String explicitType = raw.containsKey("type") ? string(raw.get("type")) : null;
-            String type = explicitType != null ? explicitType : raw.keySet().stream()
-                    .map(YamlEventLoader::string).filter(k -> !Set.of("id", "retry").contains(k)).findFirst().orElseThrow();
+            String type = explicitType != null
+                    ? explicitType
+                    : raw.keySet().stream()
+                            .map(YamlEventLoader::string)
+                            .filter(k -> !Set.of("id", "retry").contains(k))
+                            .findFirst()
+                            .orElseThrow();
             Map<String, Object> arguments = new HashMap<>();
             if (explicitType != null) {
                 copyActionArguments(raw, arguments);
@@ -125,7 +131,8 @@ public final class YamlEventLoader {
         if (raw.isEmpty()) {
             return RetryPolicy.DEFAULT;
         }
-        return new RetryPolicy(integer(valueOr(raw, "max-attempts", 3)),
+        return new RetryPolicy(
+                integer(valueOr(raw, "max-attempts", 3)),
                 DurationParser.parse(valueOr(raw, "initial-delay", "1s")),
                 Double.parseDouble(string(valueOr(raw, "multiplier", 2))),
                 DurationParser.parse(valueOr(raw, "maximum-delay", "30s")));
@@ -171,9 +178,11 @@ public final class YamlEventLoader {
 
     private static String required(Map<?, ?> map, String key) {
         Object value = map.get(key);
-        if (value == null || string(value).isBlank()) throw new IllegalArgumentException("Missing required key: " + key);
+        if (value == null || string(value).isBlank())
+            throw new IllegalArgumentException("Missing required key: " + key);
         return string(value);
     }
+
     private static String string(Object value) {
         return String.valueOf(value);
     }
@@ -181,6 +190,7 @@ public final class YamlEventLoader {
     private static int integer(Object value) {
         return Integer.parseInt(string(value));
     }
+
     private static Object valueOr(Map<?, ?> map, String key, Object fallback) {
         Object value = map.get(key);
         return value == null ? fallback : value;
@@ -195,7 +205,8 @@ public final class YamlEventLoader {
     private static Object normalize(Object value) {
         if (value instanceof ConfigurationSection section) return normalizeMap(section.getValues(false));
         if (value instanceof Map<?, ?> map) return normalizeMap(map);
-        if (value instanceof List<?> list) return list.stream().map(YamlEventLoader::normalize).toList();
+        if (value instanceof List<?> list)
+            return list.stream().map(YamlEventLoader::normalize).toList();
         return value;
     }
 }

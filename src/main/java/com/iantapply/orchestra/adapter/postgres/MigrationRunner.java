@@ -1,9 +1,9 @@
 package com.iantapply.orchestra.adapter.postgres;
 
-import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import javax.sql.DataSource;
 
 /** Applies the bundled, idempotent Orchestra PostgreSQL schema migration. */
 public final class MigrationRunner {
@@ -31,11 +31,13 @@ public final class MigrationRunner {
             if (input == null) throw new IOException("Missing migration: " + MIGRATION);
             sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.createStatement()) {
             connection.setAutoCommit(false);
             try {
                 statement.execute(sql);
-                statement.executeUpdate("INSERT INTO orchestra_schema_history(version) VALUES (1) ON CONFLICT DO NOTHING");
+                statement.executeUpdate(
+                        "INSERT INTO orchestra_schema_history(version) VALUES (1) ON CONFLICT DO NOTHING");
                 connection.commit();
             } catch (SQLException failure) {
                 connection.rollback();

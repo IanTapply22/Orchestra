@@ -15,15 +15,20 @@ import java.util.regex.Pattern;
  * @param targets servers eligible to execute the event
  * @param stages ordered workflow stages
  */
-public record EventDefinition(String id, String displayName, RecurringSchedule schedule,
-                              TargetSelector targets, List<StageDefinition> stages) {
+public record EventDefinition(
+        String id,
+        String displayName,
+        RecurringSchedule schedule,
+        TargetSelector targets,
+        List<StageDefinition> stages) {
     private static final Pattern ID = Pattern.compile("[a-z0-9][a-z0-9_-]{1,63}");
 
     /** Validates the definition and snapshots its ordered stages. */
     public EventDefinition {
         id = id == null ? "" : id.toLowerCase(Locale.ROOT);
         if (!ID.matcher(id).matches()) throw new IllegalArgumentException("Invalid event id: " + id);
-        if (displayName == null || displayName.isBlank()) throw new IllegalArgumentException("Display name is required");
+        if (displayName == null || displayName.isBlank())
+            throw new IllegalArgumentException("Display name is required");
         if (targets == null) throw new IllegalArgumentException("Targets are required");
         stages = List.copyOf(stages);
         if (stages.isEmpty()) throw new IllegalArgumentException("At least one stage is required");

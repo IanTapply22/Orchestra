@@ -9,8 +9,6 @@ import com.iantapply.orchestra.api.RetryPolicy;
 import com.iantapply.orchestra.api.StageDefinition;
 import com.iantapply.orchestra.domain.EventExecution;
 import com.iantapply.orchestra.port.TargetResolver;
-import lombok.RequiredArgsConstructor;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -22,6 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
+import lombok.RequiredArgsConstructor;
 
 /** Executes one stage while the engine remains responsible for lifecycle transitions. */
 @RequiredArgsConstructor
@@ -37,7 +36,8 @@ final class StageExecutor {
         for (ConditionSpec condition : stage.conditions()) {
             ConditionContext context = new ConditionContext(
                     execution.id(), event, stage, condition, clock.instant(), execution.variables());
-            boolean passed = registry.condition(condition.type()).test(context)
+            boolean passed = registry.condition(condition.type())
+                    .test(context)
                     .toCompletableFuture()
                     .get(stage.timeout().toMillis(), TimeUnit.MILLISECONDS);
             if (!passed) return false;
@@ -45,7 +45,8 @@ final class StageExecutor {
         return true;
     }
 
-    EventExecution executeActions(EventExecution initial, EventDefinition event, StageDefinition stage) throws Exception {
+    EventExecution executeActions(EventExecution initial, EventDefinition event, StageDefinition stage)
+            throws Exception {
         EventExecution current = initial;
         Set<String> servers = targets.resolve(event.targets());
 
@@ -67,10 +68,16 @@ final class StageExecutor {
         return current;
     }
 
-    private EventExecution runExternalAction(EventExecution current, EventDefinition event, StageDefinition stage,
-                                             ActionSpec action, String server, String key) throws Exception {
-        ActionContext context = new ActionContext(
-                current.id(), event, stage, action, server, clock.instant(), current.variables());
+    private EventExecution runExternalAction(
+            EventExecution current,
+            EventDefinition event,
+            StageDefinition stage,
+            ActionSpec action,
+            String server,
+            String key)
+            throws Exception {
+        ActionContext context =
+                new ActionContext(current.id(), event, stage, action, server, clock.instant(), current.variables());
         executeWithRetry(context, stage.timeout());
         return current.withCompletedAction(key, clock.instant());
     }
@@ -88,9 +95,19 @@ final class StageExecutor {
 
         var completed = new HashSet<>(current.completedActions());
         completed.add(actionKey);
-        return new EventExecution(current.id(), current.definitionId(), current.status(), current.stageIndex(),
-                current.version() + 1, current.createdAt(), clock.instant(), current.dueAt(), current.stageStartedAt(),
-                variables, completed, current.failure());
+        return new EventExecution(
+                current.id(),
+                current.definitionId(),
+                current.status(),
+                current.stageIndex(),
+                current.version() + 1,
+                current.createdAt(),
+                clock.instant(),
+                current.dueAt(),
+                current.stageStartedAt(),
+                variables,
+                completed,
+                current.failure());
     }
 
     private void executeWithRetry(ActionContext context, Duration timeout) throws Exception {
@@ -101,7 +118,8 @@ final class StageExecutor {
             Duration delay = policy.delayBefore(attempt);
             if (!delay.isZero()) Thread.sleep(delay);
             try {
-                registry.action(context.action().type()).execute(context)
+                registry.action(context.action().type())
+                        .execute(context)
                         .toCompletableFuture()
                         .get(timeout.toMillis(), TimeUnit.MILLISECONDS);
                 return;
@@ -110,14 +128,13 @@ final class StageExecutor {
             }
         }
 
-        Exception exhausted = new Exception("Action failed after " + policy.maxAttempts()
-                + " attempts: " + context.action().id());
+        Exception exhausted = new Exception("Action failed after " + policy.maxAttempts() + " attempts: "
+                + context.action().id());
         failures.forEach(exhausted::addSuppressed);
         throw exhausted;
     }
 
-    private static String actionKey(EventExecution execution, StageDefinition stage,
-                                    ActionSpec action, String server) {
+    private static String actionKey(EventExecution execution, StageDefinition stage, ActionSpec action, String server) {
         return execution.id() + ":" + stage.id() + ":" + action.id() + ":" + server;
     }
 }

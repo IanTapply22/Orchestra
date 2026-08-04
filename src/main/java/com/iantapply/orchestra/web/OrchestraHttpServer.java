@@ -5,7 +5,6 @@ import com.iantapply.orchestra.security.Actor;
 import com.iantapply.orchestra.security.Permission;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -26,14 +25,20 @@ public final class OrchestraHttpServer implements AutoCloseable {
      * @param tokens bearer-token to actor mappings
      * @throws IOException when the listening server cannot be created
      */
-    public OrchestraHttpServer(InetSocketAddress address, MetricsRegistry metrics, Map<String, Actor> tokens) throws IOException {
+    public OrchestraHttpServer(InetSocketAddress address, MetricsRegistry metrics, Map<String, Actor> tokens)
+            throws IOException {
         this.server = HttpServer.create(address, 64);
         this.tokens = Map.copyOf(tokens);
 
-        server.setExecutor(Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("orchestra-http-", 0).factory()));
+        server.setExecutor(Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("orchestra-http-", 0).factory()));
         server.createContext("/health", exchange -> text(exchange, 200, "ok\n", "text/plain"));
-        server.createContext("/metrics", exchange -> authenticated(exchange, Permission.VIEW,
-                _ -> text(exchange, 200, metrics.prometheus(), "text/plain; version=0.0.4")));
+        server.createContext(
+                "/metrics",
+                exchange -> authenticated(
+                        exchange,
+                        Permission.VIEW,
+                        _ -> text(exchange, 200, metrics.prometheus(), "text/plain; version=0.0.4")));
     }
 
     /** Starts accepting HTTP requests. */

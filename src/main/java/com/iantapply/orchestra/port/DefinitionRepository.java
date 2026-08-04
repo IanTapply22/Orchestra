@@ -1,7 +1,6 @@
 package com.iantapply.orchestra.port;
 
 import com.iantapply.orchestra.api.EventDefinition;
-
 import java.util.Collection;
 import java.util.Optional;
 

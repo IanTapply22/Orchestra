@@ -1,12 +1,11 @@
 package com.iantapply.orchestra.platform.paper.action;
 
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
 import com.iantapply.orchestra.platform.paper.FoliaSupport;
-import lombok.RequiredArgsConstructor;
-
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import lombok.RequiredArgsConstructor;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 
 /** Bridges asynchronous engine work onto Paper's or Folia's global scheduler. */
 @RequiredArgsConstructor

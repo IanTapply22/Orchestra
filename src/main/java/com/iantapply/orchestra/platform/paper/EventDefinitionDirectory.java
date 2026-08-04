@@ -2,20 +2,18 @@ package com.iantapply.orchestra.platform.paper;
 
 import com.iantapply.orchestra.adapter.yaml.YamlEventLoader;
 import com.iantapply.orchestra.port.DefinitionRepository;
-import lombok.RequiredArgsConstructor;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.bukkit.plugin.java.JavaPlugin;
 
 /** Installs bundled examples and loads event YAML files from the plugin data directory. */
 @RequiredArgsConstructor
 final class EventDefinitionDirectory {
-    private static final List<String> BUNDLED_EXAMPLES = List.of(
-            "weekend_double_xp.yml");
+    private static final List<String> BUNDLED_EXAMPLES = List.of("weekend_double_xp.yml");
 
     private final JavaPlugin plugin;
 

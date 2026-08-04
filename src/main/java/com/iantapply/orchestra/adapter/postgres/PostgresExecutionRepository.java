@@ -3,7 +3,6 @@ package com.iantapply.orchestra.adapter.postgres;
 import com.iantapply.orchestra.api.EventStatus;
 import com.iantapply.orchestra.domain.EventExecution;
 import com.iantapply.orchestra.port.ExecutionRepository;
-import javax.sql.DataSource;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +14,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import javax.sql.DataSource;
 
 /** PostgreSQL execution repository with atomic version-checked updates. */
 public final class PostgresExecutionRepository implements ExecutionRepository {
@@ -34,7 +34,8 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
     @Override
     public void create(EventExecution execution) {
         String sql = "INSERT INTO event_executions (" + COLUMNS + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
-        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(sql)) {
             bind(statement, execution);
             statement.executeUpdate();
         } catch (SQLException failure) {
@@ -45,7 +46,8 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
     @Override
     public Optional<EventExecution> find(UUID id) {
         String sql = "SELECT " + COLUMNS + " FROM event_executions WHERE id=?";
-        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(sql)) {
             statement.setObject(1, id);
             try (var rows = statement.executeQuery()) {
                 return rows.next() ? Optional.of(read(rows)) : Optional.empty();
@@ -57,7 +59,8 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
 
     @Override
     public Collection<EventExecution> findDue(Instant now, int limit) {
-        return query("SELECT " + COLUMNS + " FROM event_executions "
+        return query(
+                "SELECT " + COLUMNS + " FROM event_executions "
                         + "WHERE due_at<=? AND status IN ('SCHEDULED','STARTING','RUNNING') ORDER BY due_at LIMIT ?",
                 statement -> {
                     statement.setTimestamp(1, timestamp(now));
@@ -67,7 +70,8 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
 
     @Override
     public Collection<EventExecution> findActive(int limit) {
-        return query("SELECT " + COLUMNS + " FROM event_executions "
+        return query(
+                "SELECT " + COLUMNS + " FROM event_executions "
                         + "WHERE status IN ('SCHEDULED','STARTING','RUNNING','PAUSED') ORDER BY updated_at LIMIT ?",
                 statement -> statement.setInt(1, limit));
     }
@@ -77,7 +81,8 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
         String sql = "UPDATE event_executions SET definition_id=?, status=?, stage_index=?, version=?, created_at=?, "
                 + "updated_at=?, due_at=?, stage_started_at=?, variables=?, completed_actions=?, failure=? "
                 + "WHERE id=? AND version=?";
-        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(sql)) {
             statement.setString(1, replacement.definitionId());
             statement.setString(2, replacement.status().name());
             statement.setInt(3, replacement.stageIndex());
@@ -98,7 +103,8 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
     }
 
     private Collection<EventExecution> query(String sql, StatementBinder binder) {
-        try (var connection = dataSource.getConnection(); var statement = connection.prepareStatement(sql)) {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(sql)) {
             binder.bind(statement);
             List<EventExecution> result = new ArrayList<>();
             try (var rows = statement.executeQuery()) {
@@ -126,11 +132,19 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
     }
 
     private static EventExecution read(ResultSet rows) throws SQLException {
-        return new EventExecution(rows.getObject("id", UUID.class), rows.getString("definition_id"),
-                EventStatus.valueOf(rows.getString("status")), rows.getInt("stage_index"), rows.getLong("version"),
-                instant(rows, "created_at"), instant(rows, "updated_at"), instant(rows, "due_at"),
-                instant(rows, "stage_started_at"), BinaryValueCodec.decodeMap(rows.getBytes("variables")),
-                BinaryValueCodec.decodeStrings(rows.getBytes("completed_actions")), rows.getString("failure"));
+        return new EventExecution(
+                rows.getObject("id", UUID.class),
+                rows.getString("definition_id"),
+                EventStatus.valueOf(rows.getString("status")),
+                rows.getInt("stage_index"),
+                rows.getLong("version"),
+                instant(rows, "created_at"),
+                instant(rows, "updated_at"),
+                instant(rows, "due_at"),
+                instant(rows, "stage_started_at"),
+                BinaryValueCodec.decodeMap(rows.getBytes("variables")),
+                BinaryValueCodec.decodeStrings(rows.getBytes("completed_actions")),
+                rows.getString("failure"));
     }
 
     private static Timestamp timestamp(Instant instant) {
@@ -141,10 +155,12 @@ public final class PostgresExecutionRepository implements ExecutionRepository {
         Timestamp value = rows.getTimestamp(name);
         return value == null ? null : value.toInstant();
     }
+
     private static void setInstant(PreparedStatement statement, int index, Instant value) throws SQLException {
         if (value == null) statement.setNull(index, Types.TIMESTAMP_WITH_TIMEZONE);
         else statement.setTimestamp(index, timestamp(value));
     }
+
     private static IllegalStateException databaseFailure(String operation, SQLException cause) {
         return new IllegalStateException("Could not " + operation, cause);
     }

@@ -9,32 +9,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Transport-facing Velocity agent; a proxy bootstrap supplies the small ProxyFacade implementation. */
 public final class VelocityAgent implements AutoCloseable {
-    /** Minimal proxy operations required by the transport-facing agent. */
-    public interface ProxyFacade {
-        /**
-         * Counts connected players.
-         *
-         * @return current proxy-wide online player count
-         */
-        int onlinePlayers();
-
-        /**
-         * Requests that a player connect to a backend server.
-         *
-         * @param playerId player UUID
-         * @param serverId destination backend name
-         */
-        void movePlayer(String playerId, String serverId);
-
-        /**
-         * Publishes or applies the requested join state for a server group.
-         *
-         * @param group server group
-         * @param enabled whether the group should accept joins
-         */
-        void setGroupJoins(String group, boolean enabled);
-    }
-
     private final String proxyId;
     private final NetworkTransport transport;
     private final ProxyFacade proxy;
@@ -80,7 +54,7 @@ public final class VelocityAgent implements AutoCloseable {
         switch (command[0]) {
             case "MOVE" -> movePlayer(command);
             case "JOINS" -> updateJoinState(command);
-            default -> { }
+            default -> {}
         }
     }
 

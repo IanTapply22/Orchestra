@@ -17,6 +17,7 @@ public interface DistributedLock {
     /** A lock claim that releases only its own ownership token when closed. */
     interface Lease extends AutoCloseable {
         /** Releases this lease; repeated calls must be harmless. */
-        @Override void close();
+        @Override
+        void close();
     }
 }
