@@ -8,7 +8,7 @@ on:
 jobs:
   publish:
     name: Publish Gradle package
-    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'feat') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release') }}
     runs-on: ubuntu-latest
     environment: jdk25-publishing
     permissions:
