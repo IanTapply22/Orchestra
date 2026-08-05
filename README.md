@@ -48,6 +48,61 @@ The hook runs `lint` before each commit and blocks the commit when formatting vi
 
 Paper/Folia and Velocity lifecycle bootstraps still require smoke testing on their real server runtimes; the automated suite tests the platform-neutral services and adapters those entry points assemble.
 
+## Local development
+
+Import the project into IntelliJ as a Gradle project and use the included wrapper for all commands. Orchestra targets Java 25, so configure the project SDK and Gradle JVM to a Java 25 installation. Lombok is used at compile time; enable annotation processing in IntelliJ if generated constructors or accessors appear unresolved.
+
+Useful development commands:
+
+```shell
+./gradlew clean lint test jar
+./gradlew lintFix
+./gradlew javadoc
+./gradlew publishToMavenLocal
+```
+
+On Windows, use `.\gradlew.bat` instead of `./gradlew`.
+
+### Running a local Paper server
+
+The project includes the run-paper Gradle plugin for quick backend testing. Start a disposable local Paper server with:
+
+```shell
+./gradlew runServer
+```
+
+The task builds Orchestra, downloads Paper 26.2, creates a local server directory under `run`, installs the current plugin build, accepts the Mojang EULA for that development server, and starts Minecraft on the normal local server port. Stop it from the server console with:
+
+```text
+stop
+```
+
+Debug from IntelliJ with:
+
+```shell
+./gradlew runServer --debug-jvm
+```
+
+Then attach a Remote JVM Debug configuration to `localhost:5005`. The JVM waits for the debugger before continuing.
+
+`runServer` is for Paper development only. It does not launch Folia or Velocity. For Folia or Velocity smoke tests, build the JAR and copy the same artifact from `build/libs` into that server's `plugins` directory.
+
+### Local configuration
+
+On first startup, the local server creates `run/plugins/Orchestra/config.yml` and copies the example event into `run/plugins/Orchestra/events`. The default configuration keeps PostgreSQL, Redis, and the HTTP listener disabled, which is the easiest mode for engine and action development.
+
+Enable PostgreSQL locally when testing restart recovery, optimistic locking, migrations, or audit persistence. Enable Redis locally when testing multi-process scheduling, distributed leases, proxy transport, or Velocity routing. Keep each local Paper/Folia server on a unique `server.id`, even when they are only test servers.
+
+### Local verification loop
+
+Before opening a pull request or publishing a build, run:
+
+```shell
+./gradlew clean lint test jar javadoc
+```
+
+Use `./gradlew installGitHooks` once per checkout if you want formatting checked before every commit. The hook runs `lint` and does not modify files automatically.
+
 ## Quick start
 
 1. Build the JAR and install it on a Paper or Folia server.

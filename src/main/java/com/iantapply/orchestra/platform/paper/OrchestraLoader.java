@@ -18,7 +18,8 @@ public final class OrchestraLoader implements PluginLoader {
     public void classloader(final PluginClasspathBuilder builder) {
         MavenLibraryResolver libraries = new MavenLibraryResolver();
         libraries.addRepository(
-                new RemoteRepository.Builder("central", "default", "https://repo.maven.apache.org/maven2/").build());
+                new RemoteRepository.Builder("central", "default", MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR)
+                        .build());
         libraries.addDependency(new Dependency(new DefaultArtifact("com.zaxxer:HikariCP:7.0.2"), null));
         libraries.addDependency(new Dependency(new DefaultArtifact("org.postgresql:postgresql:42.7.12"), null));
         builder.addLibrary(libraries);
