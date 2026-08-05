@@ -293,8 +293,23 @@ The embedded HTTP listener currently exposes:
 
 - `GET /health` - unauthenticated process health
 - `GET /metrics` - Prometheus text exposition requiring the `VIEW` permission
+- `POST /events/{eventId}/executions` - immediately trigger a loaded event definition, requiring the `OPERATE` permission
 
 Authenticated requests use `Authorization: Bearer <token>`. Token values map to `VIEWER`, `OPERATOR`, `APPROVER`, or `ADMINISTRATOR` roles in `web.tokens`. The current build does not expose event mutation endpoints or a browser dashboard.
+
+Trigger an event with an empty request body:
+
+```shell
+curl -X POST \
+  -H "Authorization: Bearer <token>" \
+  http://127.0.0.1:8787/events/weekend_double_xp/executions
+```
+
+A successful request returns `202 Accepted` and the new execution identifier:
+
+```json
+{"execution_id":"0dc1e66c-5537-437b-8fd5-96f1e9dabf1c","definition_id":"weekend_double_xp"}
+```
 
 Bind the listener to a private interface. Do not expose it directly to the public internet; use a long random bearer token and terminate TLS at a trusted reverse proxy.
 

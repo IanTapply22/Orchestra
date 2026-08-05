@@ -110,9 +110,10 @@ public final class OrchestratorEngine implements AutoCloseable {
      * Schedules an event immediately with no initial variables.
      *
      * @param definitionId event definition to schedule immediately
+     * @return new execution identifier
      */
-    public void startNow(String definitionId) {
-        schedule(definitionId, clock.instant(), Map.of());
+    public UUID startNow(String definitionId) {
+        return schedule(definitionId, clock.instant(), Map.of());
     }
 
     /**

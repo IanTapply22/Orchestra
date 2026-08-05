@@ -182,7 +182,7 @@ public final class OrchestraPlugin extends JavaPlugin {
         try {
             InetSocketAddress address = new InetSocketAddress(
                     getConfig().getString("web.bind", "127.0.0.1"), getConfig().getInt("web.port", 8787));
-            OrchestraHttpServer web = new OrchestraHttpServer(address, metrics, apiTokens());
+            OrchestraHttpServer web = new OrchestraHttpServer(address, metrics, apiTokens(), engine::startNow);
             web.start();
             resources.add(web);
         } catch (Exception failure) {

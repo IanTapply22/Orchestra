@@ -10,12 +10,14 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 
 /** Small authenticated HTTP server exposing health and Prometheus metrics. */
 public final class OrchestraHttpServer implements AutoCloseable {
     private final HttpServer server;
     private final Map<String, Actor> tokens;
+    private final EventTrigger eventTrigger;
 
     /**
      * Creates the HTTP listener without starting it.
@@ -23,12 +25,15 @@ public final class OrchestraHttpServer implements AutoCloseable {
      * @param address bind address
      * @param metrics metrics registry exposed at {@code /metrics}
      * @param tokens bearer-token to actor mappings
+     * @param eventTrigger callback that creates an immediate event execution
      * @throws IOException when the listening server cannot be created
      */
-    public OrchestraHttpServer(InetSocketAddress address, MetricsRegistry metrics, Map<String, Actor> tokens)
+    public OrchestraHttpServer(
+            InetSocketAddress address, MetricsRegistry metrics, Map<String, Actor> tokens, EventTrigger eventTrigger)
             throws IOException {
         this.server = HttpServer.create(address, 64);
         this.tokens = Map.copyOf(tokens);
+        this.eventTrigger = eventTrigger;
 
         server.setExecutor(Executors.newThreadPerTaskExecutor(
                 Thread.ofVirtual().name("orchestra-http-", 0).factory()));
@@ -39,6 +44,8 @@ public final class OrchestraHttpServer implements AutoCloseable {
                         exchange,
                         Permission.VIEW,
                         _ -> text(exchange, 200, metrics.prometheus(), "text/plain; version=0.0.4")));
+        server.createContext(
+                "/events/", exchange -> authenticated(exchange, Permission.OPERATE, _ -> triggerEvent(exchange)));
     }
 
     /** Starts accepting HTTP requests. */
@@ -82,6 +89,39 @@ public final class OrchestraHttpServer implements AutoCloseable {
         return null;
     }
 
+    private void triggerEvent(HttpExchange exchange) throws IOException {
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            exchange.getResponseHeaders().set("Allow", "POST");
+            text(exchange, 405, "method not allowed\n", "text/plain");
+            return;
+        }
+
+        String definitionId = executionDefinitionId(exchange.getRequestURI().getPath());
+        if (definitionId == null) {
+            text(exchange, 404, "not found\n", "text/plain");
+            return;
+        }
+
+        try {
+            UUID executionId = eventTrigger.start(definitionId);
+            String response =
+                    "{\"execution_id\":\"%s\",\"definition_id\":\"%s\"}\n".formatted(executionId, definitionId);
+            text(exchange, 202, response, "application/json");
+        } catch (IllegalArgumentException unknownEvent) {
+            text(exchange, 404, "unknown event\n", "text/plain");
+        }
+    }
+
+    private static String executionDefinitionId(String path) {
+        String prefix = "/events/";
+        String suffix = "/executions";
+        if (!path.startsWith(prefix) || !path.endsWith(suffix)) {
+            return null;
+        }
+        String definitionId = path.substring(prefix.length(), path.length() - suffix.length());
+        return definitionId.isBlank() || definitionId.contains("/") ? null : definitionId;
+    }
+
     private static void text(HttpExchange exchange, int status, String body, String contentType) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", contentType);
@@ -97,5 +137,18 @@ public final class OrchestraHttpServer implements AutoCloseable {
     @FunctionalInterface
     private interface Handler {
         void handle(Actor actor) throws IOException;
+    }
+
+    /** Callback used by the HTTP adapter to create an immediate event execution. */
+    @FunctionalInterface
+    public interface EventTrigger {
+        /**
+         * Starts a loaded event definition.
+         *
+         * @param definitionId event definition identifier
+         * @return newly created execution identifier
+         * @throws IllegalArgumentException when the definition is unknown
+         */
+        UUID start(String definitionId);
     }
 }
