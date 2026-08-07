@@ -20,10 +20,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
-import lombok.RequiredArgsConstructor;
 
 /** Executes one stage while the engine remains responsible for lifecycle transitions. */
-@RequiredArgsConstructor
 final class StageExecutor {
     private static final String SET_VARIABLE = "set_variable";
 
@@ -31,6 +29,17 @@ final class StageExecutor {
     private final TargetResolver targets;
     private final Clock clock;
     private final BiPredicate<EventExecution, EventExecution> persist;
+
+    StageExecutor(
+            ActionRegistry registry,
+            TargetResolver targets,
+            Clock clock,
+            BiPredicate<EventExecution, EventExecution> persist) {
+        this.registry = registry;
+        this.targets = targets;
+        this.clock = clock;
+        this.persist = persist;
+    }
 
     boolean conditionsPass(EventExecution execution, EventDefinition event, StageDefinition stage) throws Exception {
         for (ConditionSpec condition : stage.conditions()) {

@@ -48,20 +48,24 @@ class RedisAdaptersTest {
                     new RedisDistributedLock(URI.create("redis://127.0.0.1:" + redis.port()), "orchestra");
 
             var lease = locks.tryAcquire("execution:one", Duration.ofSeconds(3)).orElseThrow();
+            assertTrue(lease.renew(Duration.ofSeconds(5)));
             lease.close();
             lease.close();
 
-            awaitCommands(redis, 2);
+            awaitCommands(redis, 3);
             List<String> set = redis.commands().get(0);
-            List<String> release = redis.commands().get(1);
+            List<String> renewal = redis.commands().get(1);
+            List<String> release = redis.commands().get(2);
             assertEquals(List.of("SET", "orchestra:lock:execution:one"), set.subList(0, 2));
             assertEquals("NX", set.get(3));
             assertEquals("PX", set.get(4));
             assertEquals("3000", set.get(5));
+            assertEquals("EVAL", renewal.getFirst());
+            assertEquals("5000", renewal.get(5));
             assertEquals("EVAL", release.getFirst());
             assertEquals("orchestra:lock:execution:one", release.get(3));
             assertEquals(set.get(2), release.get(4));
-            assertEquals(2, redis.commands().size());
+            assertEquals(3, redis.commands().size());
         }
     }
 
@@ -196,7 +200,8 @@ class RedisAdaptersTest {
         private static void respond(BufferedOutputStream output, String name, List<byte[]> command) throws IOException {
             switch (name) {
                 case "ECHO" -> bulk(output, command.get(1));
-                case "NUMBER", "PUBLISH", "EVAL" -> output.write(":42\r\n".getBytes(StandardCharsets.US_ASCII));
+                case "NUMBER", "PUBLISH" -> output.write(":42\r\n".getBytes(StandardCharsets.US_ASCII));
+                case "EVAL" -> output.write(":1\r\n".getBytes(StandardCharsets.US_ASCII));
                 case "ARRAY" -> output.write("*2\r\n+OK\r\n:7\r\n".getBytes(StandardCharsets.US_ASCII));
                 case "SUBSCRIBE" -> {
                     byte[] channel = command.get(1);

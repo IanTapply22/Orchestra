@@ -11,14 +11,15 @@ import com.iantapply.orchestra.port.DistributedLock;
 import com.iantapply.orchestra.port.ExecutionRepository;
 import com.iantapply.orchestra.port.TargetResolver;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -30,14 +31,16 @@ import java.util.function.UnaryOperator;
  * {@link ActionContext#idempotencyKey()} when calling systems that support deduplication.
  */
 public final class OrchestratorEngine implements AutoCloseable {
-    private static final Duration LEASE_TIME = Duration.ofSeconds(30);
+    private static final System.Logger LOGGER = System.getLogger(OrchestratorEngine.class.getName());
     private final DefinitionRepository definitions;
     private final ExecutionRepository executions;
     private final DistributedLock locks;
     private final EventStateMachine stateMachine = new EventStateMachine();
     private final StageExecutor stageExecutor;
     private final Clock clock;
+    private final EngineOptions options;
     private final ScheduledExecutorService timer;
+    private final ScheduledExecutorService leaseTimer;
     private final ThreadPoolExecutor workers;
     private final CopyOnWriteArrayList<EventLifecycleListener> listeners = new CopyOnWriteArrayList<>();
     private final AtomicBoolean running = new AtomicBoolean();
@@ -63,27 +66,59 @@ public final class OrchestratorEngine implements AutoCloseable {
             Clock clock,
             int workerCount,
             int queueCapacity) {
+        this(
+                definitions,
+                executions,
+                locks,
+                targets,
+                registry,
+                clock,
+                EngineOptions.defaults(workerCount, queueCapacity));
+    }
+
+    /**
+     * Creates an engine with explicit operational timing and capacity options.
+     *
+     * @param definitions event definition store
+     * @param executions durable execution store
+     * @param locks distributed execution lease provider
+     * @param targets target resolver
+     * @param registry action and condition registry
+     * @param clock engine clock
+     * @param options operational timing and capacity options
+     */
+    public OrchestratorEngine(
+            DefinitionRepository definitions,
+            ExecutionRepository executions,
+            DistributedLock locks,
+            TargetResolver targets,
+            ActionRegistry registry,
+            Clock clock,
+            EngineOptions options) {
         this.definitions = definitions;
         this.executions = executions;
         this.locks = locks;
         this.clock = clock;
+        this.options = options;
         this.stageExecutor = new StageExecutor(registry, targets, clock, this::replace);
         this.timer = Executors.newSingleThreadScheduledExecutor(namedFactory("orchestra-timer-"));
+        this.leaseTimer = Executors.newSingleThreadScheduledExecutor(namedFactory("orchestra-lease-"));
         this.workers = new ThreadPoolExecutor(
-                workerCount,
-                workerCount,
+                options.workerCount(),
+                options.workerCount(),
                 30,
                 TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(queueCapacity),
+                new ArrayBlockingQueue<>(options.queueCapacity()),
                 namedFactory("orchestra-worker-"),
-                new ThreadPoolExecutor.CallerRunsPolicy());
+                new ThreadPoolExecutor.AbortPolicy());
         this.workers.allowCoreThreadTimeOut(true);
     }
 
     /** Starts the due-execution polling loop once. */
     public void start() {
         if (running.compareAndSet(false, true)) {
-            timer.scheduleWithFixedDelay(this::safeTick, 0, 250, TimeUnit.MILLISECONDS);
+            timer.scheduleWithFixedDelay(
+                    this::safeTick, 0, options.pollInterval().toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
@@ -205,24 +240,30 @@ public final class OrchestratorEngine implements AutoCloseable {
             return;
         }
         try {
-            for (EventExecution due : executions.findDue(clock.instant(), 256)) {
+            for (EventExecution due : executions.findDue(clock.instant(), options.pollBatchSize())) {
                 submit(due);
             }
-        } catch (Throwable ignored) {
-            // A repository outage must not cancel ScheduledExecutor's future invocations.
+        } catch (Throwable failure) {
+            LOGGER.log(System.Logger.Level.WARNING, "Execution polling failed", failure);
         }
     }
 
     private void submit(EventExecution execution) {
-        workers.execute(() -> process(execution.id()));
+        try {
+            workers.execute(() -> process(execution.id()));
+        } catch (RejectedExecutionException saturated) {
+            LOGGER.log(System.Logger.Level.WARNING, "Execution queue is full; work will be retried by polling");
+        }
     }
 
     private void process(UUID id) {
-        try (DistributedLock.Lease ignored =
-                locks.tryAcquire("execution:" + id, LEASE_TIME).orElse(null)) {
-            if (ignored == null) {
-                return;
-            }
+        DistributedLock.Lease lease =
+                locks.tryAcquire("execution:" + id, options.leaseDuration()).orElse(null);
+        if (lease == null) return;
+        long renewalMillis = Math.max(1, options.leaseDuration().toMillis() / 3);
+        ScheduledFuture<?> renewal = leaseTimer.scheduleAtFixedRate(
+                () -> renewLease(id, lease), renewalMillis, renewalMillis, TimeUnit.MILLISECONDS);
+        try (lease) {
             EventExecution current = executions.find(id).orElse(null);
             if (current == null
                     || current.status() == EventStatus.PAUSED
@@ -270,7 +311,37 @@ public final class OrchestratorEngine implements AutoCloseable {
             replace(current, advanced);
         } catch (Throwable failure) {
             executions.find(id).ifPresent(current -> fail(current, rootMessage(failure)));
+        } finally {
+            renewal.cancel(false);
         }
+    }
+
+    private void renewLease(UUID id, DistributedLock.Lease lease) {
+        try {
+            if (!lease.renew(options.leaseDuration())) {
+                LOGGER.log(System.Logger.Level.WARNING, "Lost execution lease for " + id);
+            }
+        } catch (RuntimeException failure) {
+            LOGGER.log(System.Logger.Level.WARNING, "Could not renew execution lease for " + id, failure);
+        }
+    }
+
+    /**
+     * Returns the number of execution tasks currently waiting for a worker.
+     *
+     * @return queued task count
+     */
+    public int queuedTaskCount() {
+        return workers.getQueue().size();
+    }
+
+    /**
+     * Returns the number of workers currently executing a task.
+     *
+     * @return active worker count
+     */
+    public int activeWorkerCount() {
+        return workers.getActiveCount();
     }
 
     private boolean update(UUID id, UnaryOperator<EventExecution> operation) {
@@ -298,8 +369,8 @@ public final class OrchestratorEngine implements AutoCloseable {
             for (EventLifecycleListener listener : listeners) {
                 try {
                     listener.onTransition(before, after);
-                } catch (RuntimeException ignored) {
-                    // One listener must not prevent the remaining listeners from observing the transition.
+                } catch (RuntimeException failure) {
+                    LOGGER.log(System.Logger.Level.WARNING, "Lifecycle listener failed", failure);
                 }
             }
         }
@@ -343,9 +414,10 @@ public final class OrchestratorEngine implements AutoCloseable {
     public void close() {
         running.set(false);
         timer.shutdownNow();
+        leaseTimer.shutdownNow();
         workers.shutdown();
         try {
-            if (!workers.awaitTermination(10, TimeUnit.SECONDS)) {
+            if (!workers.awaitTermination(options.shutdownTimeout().toMillis(), TimeUnit.MILLISECONDS)) {
                 workers.shutdownNow();
             }
         } catch (InterruptedException interrupted) {

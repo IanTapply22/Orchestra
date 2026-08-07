@@ -8,7 +8,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,11 +19,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * occurrence at most once across concurrently running nodes.
  */
 public final class RecurringEventScheduler implements AutoCloseable {
+    private static final System.Logger LOGGER = System.getLogger(RecurringEventScheduler.class.getName());
     private final DefinitionRepository definitions;
     private final OrchestratorEngine engine;
     private final DistributedLock locks;
     private final Clock clock;
-    private final Set<String> localOccurrences = ConcurrentHashMap.newKeySet();
+    private final Map<String, Instant> localOccurrences = new ConcurrentHashMap<>();
+    private final Map<String, ParsedCron> expressions = new ConcurrentHashMap<>();
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(
             Thread.ofPlatform().daemon().name("orchestra-cron", 0).factory());
     private final AtomicBoolean open = new AtomicBoolean();
@@ -55,8 +56,8 @@ public final class RecurringEventScheduler implements AutoCloseable {
     private void safeTick() {
         try {
             tick();
-        } catch (Throwable ignored) {
-            // A transient repository failure must not cancel future schedule checks.
+        } catch (Throwable failure) {
+            LOGGER.log(System.Logger.Level.WARNING, "Recurring event polling failed", failure);
         }
     }
 
@@ -67,12 +68,22 @@ public final class RecurringEventScheduler implements AutoCloseable {
             if (event.schedule() == null) {
                 continue;
             }
-            CronExpression cron = new CronExpression(event.schedule().cron());
+            CronExpression cron = expressions
+                    .compute(
+                            event.id(),
+                            (ignored, cached) -> cached != null
+                                            && cached.source()
+                                                    .equals(event.schedule().cron())
+                                    ? cached
+                                    : new ParsedCron(
+                                            event.schedule().cron(),
+                                            new CronExpression(event.schedule().cron())))
+                    .expression();
             if (!cron.matches(minute, event.schedule().zone())) {
                 continue;
             }
             String occurrence = event.id() + ":" + minute;
-            if (!localOccurrences.add(occurrence)) {
+            if (localOccurrences.putIfAbsent(occurrence, minute) != null) {
                 continue;
             }
             try (var lease = locks.tryAcquire("cron:" + occurrence, Duration.ofMinutes(2))
@@ -82,9 +93,8 @@ public final class RecurringEventScheduler implements AutoCloseable {
                 }
             }
         }
-        if (localOccurrences.size() > 10_000) {
-            localOccurrences.removeIf(key -> !key.endsWith(minute.toString()));
-        }
+        Instant retentionBoundary = minute.minus(Duration.ofMinutes(3));
+        localOccurrences.entrySet().removeIf(entry -> entry.getValue().isBefore(retentionBoundary));
     }
 
     /** Stops future recurring schedule checks. */
@@ -93,4 +103,6 @@ public final class RecurringEventScheduler implements AutoCloseable {
         open.set(false);
         timer.shutdownNow();
     }
+
+    private record ParsedCron(String source, CronExpression expression) {}
 }

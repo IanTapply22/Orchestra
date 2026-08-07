@@ -1,5 +1,8 @@
 package com.iantapply.orchestra.web;
 
+import com.iantapply.orchestra.audit.AuditEntry;
+import com.iantapply.orchestra.audit.AuditRepository;
+import com.iantapply.orchestra.audit.InMemoryAuditRepository;
 import com.iantapply.orchestra.metrics.MetricsRegistry;
 import com.iantapply.orchestra.security.Actor;
 import com.iantapply.orchestra.security.Permission;
@@ -9,15 +12,22 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** Small authenticated HTTP server exposing health and Prometheus metrics. */
 public final class OrchestraHttpServer implements AutoCloseable {
+    private static final System.Logger LOGGER = System.getLogger(OrchestraHttpServer.class.getName());
     private final HttpServer server;
+    private final ExecutorService executor;
+    private final MetricsRegistry metrics;
     private final Map<String, Actor> tokens;
     private final EventTrigger eventTrigger;
+    private final AuditRepository audit;
+    private final Clock clock;
 
     /**
      * Creates the HTTP listener without starting it.
@@ -31,21 +41,50 @@ public final class OrchestraHttpServer implements AutoCloseable {
     public OrchestraHttpServer(
             InetSocketAddress address, MetricsRegistry metrics, Map<String, Actor> tokens, EventTrigger eventTrigger)
             throws IOException {
+        this(address, metrics, tokens, eventTrigger, new InMemoryAuditRepository(1), Clock.systemUTC());
+    }
+
+    /**
+     * Creates the HTTP listener with durable operation auditing.
+     *
+     * @param address bind address
+     * @param metrics metrics registry exposed at {@code /metrics}
+     * @param tokens bearer-token to actor mappings
+     * @param eventTrigger callback that creates an immediate event execution
+     * @param audit destination for successful operator actions
+     * @param clock audit timestamp source
+     * @throws IOException when the listening server cannot be created
+     */
+    public OrchestraHttpServer(
+            InetSocketAddress address,
+            MetricsRegistry metrics,
+            Map<String, Actor> tokens,
+            EventTrigger eventTrigger,
+            AuditRepository audit,
+            Clock clock)
+            throws IOException {
         this.server = HttpServer.create(address, 64);
+        this.metrics = metrics;
         this.tokens = Map.copyOf(tokens);
         this.eventTrigger = eventTrigger;
+        this.audit = audit;
+        this.clock = clock;
 
-        server.setExecutor(Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("orchestra-http-", 0).factory()));
-        server.createContext("/health", exchange -> text(exchange, 200, "ok\n", "text/plain"));
+        executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("orchestra-http-", 0).factory());
+        server.setExecutor(executor);
+        server.createContext("/health", exchange -> getOnly(exchange, () -> text(exchange, 200, "ok\n", "text/plain")));
         server.createContext(
                 "/metrics",
-                exchange -> authenticated(
+                exchange -> getOnly(
                         exchange,
-                        Permission.VIEW,
-                        _ -> text(exchange, 200, metrics.prometheus(), "text/plain; version=0.0.4")));
+                        () -> authenticated(
+                                exchange,
+                                Permission.VIEW,
+                                _ -> text(exchange, 200, metrics.prometheus(), "text/plain; version=0.0.4"))));
         server.createContext(
-                "/events/", exchange -> authenticated(exchange, Permission.OPERATE, _ -> triggerEvent(exchange)));
+                "/events/",
+                exchange -> authenticated(exchange, Permission.OPERATE, actor -> triggerEvent(exchange, actor)));
     }
 
     /** Starts accepting HTTP requests. */
@@ -57,6 +96,7 @@ public final class OrchestraHttpServer implements AutoCloseable {
     @Override
     public void close() {
         server.stop(1);
+        executor.close();
     }
 
     private void authenticated(HttpExchange exchange, Permission permission, Handler handler) throws IOException {
@@ -89,7 +129,7 @@ public final class OrchestraHttpServer implements AutoCloseable {
         return null;
     }
 
-    private void triggerEvent(HttpExchange exchange) throws IOException {
+    private void triggerEvent(HttpExchange exchange, Actor actor) throws IOException {
         if (!"POST".equals(exchange.getRequestMethod())) {
             exchange.getResponseHeaders().set("Allow", "POST");
             text(exchange, 405, "method not allowed\n", "text/plain");
@@ -104,12 +144,33 @@ public final class OrchestraHttpServer implements AutoCloseable {
 
         try {
             UUID executionId = eventTrigger.start(definitionId);
+            try {
+                audit.append(new AuditEntry(
+                        clock.instant(),
+                        actor.id(),
+                        "start_execution",
+                        "event:" + definitionId,
+                        "execution:" + executionId,
+                        exchange.getRemoteAddress().getAddress().getHostAddress()));
+            } catch (RuntimeException failure) {
+                metrics.increment("orchestra_audit_failures_total");
+                LOGGER.log(System.Logger.Level.WARNING, "Could not persist operation audit entry", failure);
+            }
             String response =
                     "{\"execution_id\":\"%s\",\"definition_id\":\"%s\"}\n".formatted(executionId, definitionId);
             text(exchange, 202, response, "application/json");
         } catch (IllegalArgumentException unknownEvent) {
             text(exchange, 404, "unknown event\n", "text/plain");
         }
+    }
+
+    private static void getOnly(HttpExchange exchange, IoAction action) throws IOException {
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            exchange.getResponseHeaders().set("Allow", "GET");
+            text(exchange, 405, "method not allowed\n", "text/plain");
+            return;
+        }
+        action.run();
     }
 
     private static String executionDefinitionId(String path) {
@@ -137,6 +198,11 @@ public final class OrchestraHttpServer implements AutoCloseable {
     @FunctionalInterface
     private interface Handler {
         void handle(Actor actor) throws IOException;
+    }
+
+    @FunctionalInterface
+    private interface IoAction {
+        void run() throws IOException;
     }
 
     /** Callback used by the HTTP adapter to create an immediate event execution. */

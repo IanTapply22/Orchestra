@@ -14,17 +14,19 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("26.2.build.+")
-    compileOnly("org.projectlombok:lombok:1.18.46")
-    annotationProcessor("org.projectlombok:lombok:1.18.46")
-    compileOnly("com.zaxxer:HikariCP:7.0.2")
-    compileOnly("org.postgresql:postgresql:42.7.12")
-    compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
-    annotationProcessor("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
-    testImplementation(platform("org.junit:junit-bom:6.0.1"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("com.h2database:h2:2.4.240")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    paperweight.paperDevBundle(libs.versions.paper.get())
+    compileOnly(libs.hikari)
+    compileOnly(libs.postgresql)
+    compileOnly(libs.velocity.api)
+    annotationProcessor(libs.velocity.api)
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.h2)
+    testRuntimeOnly(libs.junit.launcher)
+}
+
+dependencyLocking {
+    lockAllConfigurations()
 }
 
 paperPluginYaml {
@@ -40,6 +42,44 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(25)
     withSourcesJar()
     withJavadocJar()
+}
+
+val generatedSources = layout.buildDirectory.dir("generated/sources/orchestra")
+val generatedResources = layout.buildDirectory.dir("generated/resources/orchestra")
+val hikariVersion = libs.versions.hikari.get()
+val postgresqlVersion = libs.versions.postgresql.get()
+val generateBuildInfo =
+    tasks.register<Copy>("generateBuildInfo") {
+        from("src/main/templates")
+        into(generatedSources)
+        expand("version" to project.version.toString())
+    }
+val generateRuntimeLibraryVersions =
+    tasks.register<Copy>("generateRuntimeLibraryVersions") {
+        from("src/main/resourceTemplates")
+        into(generatedResources)
+        expand(
+            "hikariVersion" to hikariVersion,
+            "postgresqlVersion" to postgresqlVersion,
+        )
+    }
+
+sourceSets.main {
+    java.srcDir(generatedSources)
+    resources.srcDir(generatedResources)
+}
+
+val integrationTest = sourceSets.create("integrationTest")
+configurations[integrationTest.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
+configurations[integrationTest.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
+
+dependencies {
+    add(integrationTest.implementationConfigurationName, sourceSets.main.get().output)
+    add(integrationTest.implementationConfigurationName, libs.hikari)
+    add(integrationTest.implementationConfigurationName, libs.postgresql)
+    add(integrationTest.implementationConfigurationName, libs.testcontainers)
+    add(integrationTest.implementationConfigurationName, libs.testcontainers.junit)
+    add(integrationTest.implementationConfigurationName, libs.testcontainers.postgresql)
 }
 
 publishing {
@@ -101,6 +141,7 @@ spotless {
         target(
             "*.md",
             "*.properties",
+            "gradle/*.toml",
             ".gitattributes",
             ".gitignore",
             ".githooks/*",
@@ -109,17 +150,38 @@ spotless {
             "src/**/*.yml",
             "src/**/*.yaml",
             "src/**/*.sql",
+            "src/**/*.properties",
         )
+        targetExclude("src/main/resourceTemplates/**")
         trimTrailingWhitespace()
         endWithNewline()
     }
 }
 
 tasks {
+    compileJava {
+        dependsOn(generateBuildInfo)
+        options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing"))
+    }
+
+    processResources {
+        dependsOn(generateRuntimeLibraryVersions)
+    }
+
     test {
         useJUnitPlatform()
         finalizedBy(jacocoTestReport)
     }
+
+    val integrationTestTask =
+        register<Test>("integrationTest") {
+            description = "Runs PostgreSQL and Redis integration tests when Docker is available."
+            group = "verification"
+            testClassesDirs = integrationTest.output.classesDirs
+            classpath = integrationTest.runtimeClasspath
+            useJUnitPlatform()
+            shouldRunAfter(test)
+        }
 
     jacocoTestReport {
         dependsOn(test)
@@ -127,6 +189,26 @@ tasks {
             html.required = true
             xml.required = true
         }
+    }
+
+    jacocoTestCoverageVerification {
+        dependsOn(test)
+        violationRules {
+            rule {
+                limit {
+                    counter = "LINE"
+                    minimum = "0.73".toBigDecimal()
+                }
+                limit {
+                    counter = "BRANCH"
+                    minimum = "0.67".toBigDecimal()
+                }
+            }
+        }
+    }
+
+    check {
+        dependsOn(jacocoTestCoverageVerification, integrationTestTask)
     }
 
     runServer {

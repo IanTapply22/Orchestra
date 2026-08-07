@@ -6,9 +6,11 @@ import com.iantapply.orchestra.adapter.postgres.PostgresAuditRepository;
 import com.iantapply.orchestra.adapter.postgres.PostgresExecutionRepository;
 import com.iantapply.orchestra.adapter.postgres.PostgresSettings;
 import com.iantapply.orchestra.adapter.redis.RedisDistributedLock;
+import com.iantapply.orchestra.adapter.redis.RedisTransport;
 import com.iantapply.orchestra.audit.AuditRepository;
 import com.iantapply.orchestra.audit.InMemoryAuditRepository;
 import com.iantapply.orchestra.engine.ActionRegistry;
+import com.iantapply.orchestra.engine.EngineOptions;
 import com.iantapply.orchestra.engine.OrchestratorEngine;
 import com.iantapply.orchestra.metrics.MetricsRegistry;
 import com.iantapply.orchestra.platform.paper.action.PaperActionRegistrar;
@@ -18,17 +20,21 @@ import com.iantapply.orchestra.port.ExecutionRepository;
 import com.iantapply.orchestra.schedule.RecurringEventScheduler;
 import com.iantapply.orchestra.security.Actor;
 import com.iantapply.orchestra.security.Role;
+import com.iantapply.orchestra.velocity.ProxyCommandPublisher;
 import com.iantapply.orchestra.web.OrchestraHttpServer;
 import com.zaxxer.hikari.HikariDataSource;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -51,7 +57,7 @@ public final class OrchestraPlugin extends JavaPlugin {
         JoinGate joinGate = new JoinGate();
 
         engine = createEngine(infrastructure, registry, clock);
-        registerActions(registry, joinGate);
+        registerActions(registry, joinGate, infrastructure.proxyCommands());
         Bukkit.getPluginManager().registerEvents(joinGate, this);
 
         int loadedDefinitions = new EventDefinitionDirectory(this).loadInto(infrastructure.definitions());
@@ -61,7 +67,7 @@ public final class OrchestraPlugin extends JavaPlugin {
         engine.start();
 
         startRecurringScheduler(infrastructure, clock);
-        startWebServer(metrics);
+        startWebServer(metrics, infrastructure.audit(), clock);
 
         getLogger().info("Folia mode: " + FoliaSupport.isFolia());
         getLogger().info("Loaded " + loadedDefinitions + " event definition(s)");
@@ -108,15 +114,24 @@ public final class OrchestraPlugin extends JavaPlugin {
             audit = new PostgresAuditRepository(dataSource);
         }
 
-        DistributedLock locks = getConfig().getBoolean("redis.enabled") ? createRedisLock() : memory;
-        return new Infrastructure(memory, executions, locks, audit);
+        DistributedLock locks = memory;
+        ProxyCommandPublisher proxyCommands = null;
+        if (getConfig().getBoolean("redis.enabled")) {
+            URI redisUri = redisUri();
+            String namespace = redisNamespace();
+            locks = new RedisDistributedLock(redisUri, namespace);
+            RedisTransport transport = new RedisTransport(redisUri, namespace);
+            resources.add(transport);
+            proxyCommands = new ProxyCommandPublisher(transport);
+        }
+        return new Infrastructure(memory, executions, locks, audit, proxyCommands);
     }
 
     private HikariDataSource openPostgres() {
         PostgresSettings settings = new PostgresSettings(
                 getConfig().getString("postgres.jdbc-url", ""),
                 getConfig().getString("postgres.username", ""),
-                getConfig().getString("postgres.password", ""),
+                secret("postgres.password", "postgres.password-environment-variable"),
                 getConfig().getInt("postgres.maximum-pool-size", 8));
         HikariDataSource dataSource = settings.openDataSource();
         resources.add(dataSource);
@@ -129,10 +144,17 @@ public final class OrchestraPlugin extends JavaPlugin {
         }
     }
 
-    private DistributedLock createRedisLock() {
-        URI redisUri = URI.create(getConfig().getString("redis.uri", "redis://localhost:6379/0"));
-        String namespace = getConfig().getString("redis.namespace", "orchestra");
-        return new RedisDistributedLock(redisUri, namespace);
+    private URI redisUri() {
+        String environmentName = getConfig().getString("redis.uri-environment-variable", "ORCHESTRA_REDIS_URI");
+        String environmentValue = environmentName == null ? null : System.getenv(environmentName);
+        return URI.create(
+                environmentValue == null || environmentValue.isBlank()
+                        ? getConfig().getString("redis.uri", "redis://localhost:6379/0")
+                        : environmentValue);
+    }
+
+    private String redisNamespace() {
+        return getConfig().getString("redis.namespace", "orchestra");
     }
 
     private OrchestratorEngine createEngine(Infrastructure infrastructure, ActionRegistry registry, Clock clock) {
@@ -148,12 +170,17 @@ public final class OrchestraPlugin extends JavaPlugin {
                 new PaperTargetResolver(identity),
                 registry,
                 clock,
-                workers,
-                queueCapacity);
+                new EngineOptions(
+                        workers,
+                        queueCapacity,
+                        Duration.ofMillis(Math.max(50, getConfig().getLong("engine.poll-interval-ms", 250))),
+                        Math.max(1, getConfig().getInt("engine.poll-batch-size", 256)),
+                        Duration.ofSeconds(Math.max(10, getConfig().getLong("engine.lease-seconds", 600))),
+                        Duration.ofSeconds(Math.max(1, getConfig().getLong("engine.shutdown-seconds", 10)))));
     }
 
-    private void registerActions(ActionRegistry registry, JoinGate joinGate) {
-        new PaperActionRegistrar(this, joinGate).registerInto(registry);
+    private void registerActions(ActionRegistry registry, JoinGate joinGate, ProxyCommandPublisher proxyCommands) {
+        new PaperActionRegistrar(this, joinGate, proxyCommands).registerInto(registry);
     }
 
     private MetricsRegistry configureMetrics(ExecutionRepository executions) {
@@ -161,6 +188,8 @@ public final class OrchestraPlugin extends JavaPlugin {
         metrics.gauge(
                 "orchestra_active_executions",
                 () -> executions.findActive(10_000).size());
+        metrics.gauge("orchestra_worker_active", engine::activeWorkerCount);
+        metrics.gauge("orchestra_worker_queue_size", engine::queuedTaskCount);
         engine.addListener((before, after) ->
                 getLogger().info("Event %s: %s -> %s".formatted(after.id(), before.status(), after.status())));
         engine.addListener((before, after) -> metrics.increment("orchestra_event_transitions_total"));
@@ -174,15 +203,19 @@ public final class OrchestraPlugin extends JavaPlugin {
         resources.add(scheduler);
     }
 
-    private void startWebServer(MetricsRegistry metrics) {
+    private void startWebServer(MetricsRegistry metrics, AuditRepository audit, Clock clock) {
         if (!getConfig().getBoolean("web.enabled")) {
             return;
         }
 
         try {
+            Map<String, Actor> tokens = apiTokens();
+            if (tokens.isEmpty()) {
+                throw new IllegalStateException("web.enabled requires at least one bearer token");
+            }
             InetSocketAddress address = new InetSocketAddress(
                     getConfig().getString("web.bind", "127.0.0.1"), getConfig().getInt("web.port", 8787));
-            OrchestraHttpServer web = new OrchestraHttpServer(address, metrics, apiTokens(), engine::startNow);
+            OrchestraHttpServer web = new OrchestraHttpServer(address, metrics, tokens, engine::startNow, audit, clock);
             web.start();
             resources.add(web);
         } catch (Exception failure) {
@@ -193,16 +226,37 @@ public final class OrchestraPlugin extends JavaPlugin {
     private Map<String, Actor> apiTokens() {
         Map<String, Actor> result = new HashMap<>();
         var section = getConfig().getConfigurationSection("web.tokens");
-        if (section == null) {
-            return result;
+        if (section != null) {
+            section.getValues(false).forEach((token, roleName) -> addToken(result, token, roleName));
         }
 
-        section.getValues(false).forEach((token, roleName) -> {
-            String actorId = "api:" + Integer.toHexString(token.hashCode());
-            Role role = Role.valueOf(String.valueOf(roleName).toUpperCase(Locale.ROOT));
-            result.put(token, new Actor(actorId, role));
-        });
+        String environmentName = getConfig().getString("web.token-environment-variable", "ORCHESTRA_WEB_TOKEN");
+        String environmentToken = environmentName == null ? null : System.getenv(environmentName);
+        if (environmentToken != null && !environmentToken.isBlank()) {
+            addToken(result, environmentToken, Role.ADMINISTRATOR.name());
+        }
         return result;
+    }
+
+    private static void addToken(Map<String, Actor> destination, String token, Object roleName) {
+        if (token.length() < 24 || token.startsWith("replace-with")) {
+            throw new IllegalArgumentException("Web bearer tokens must contain at least 24 characters");
+        }
+        String actorId = "api:" + UUID.nameUUIDFromBytes(token.getBytes(StandardCharsets.UTF_8));
+        Role role = Role.valueOf(String.valueOf(roleName).toUpperCase(Locale.ROOT));
+        destination.put(token, new Actor(actorId, role));
+    }
+
+    private String secret(String configPath, String environmentPath) {
+        String environmentName = getConfig().getString(environmentPath, "");
+        String environmentValue = environmentName.isBlank() ? null : System.getenv(environmentName);
+        String value = environmentValue == null || environmentValue.isBlank()
+                ? getConfig().getString(configPath, "")
+                : environmentValue;
+        if (value == null || value.isBlank() || value.equals("change-me")) {
+            throw new IllegalArgumentException("Missing secure value for " + configPath);
+        }
+        return value;
     }
 
     /** Infrastructure services selected from configuration during startup. */
@@ -210,5 +264,6 @@ public final class OrchestraPlugin extends JavaPlugin {
             DefinitionRepository definitions,
             ExecutionRepository executions,
             DistributedLock locks,
-            AuditRepository audit) {}
+            AuditRepository audit,
+            ProxyCommandPublisher proxyCommands) {}
 }

@@ -22,7 +22,7 @@ Build and test the project with the included Gradle wrapper:
 
 The plugin JAR is written to `build/libs`. Copy that same JAR into the `plugins` directory of every Paper/Folia backend and every Velocity proxy that should participate. The JAR contains both `paper-plugin.yml` and `velocity-plugin.json`; each platform loads only its own entry point.
 
-Paper resolves HikariCP and the PostgreSQL JDBC driver through its plugin classpath loader. Lombok is compile-time only and is not included in the finished JAR. If IntelliJ reports unresolved generated constructors, enable annotation processing and reload the Gradle project.
+Paper resolves HikariCP and the PostgreSQL JDBC driver through its plugin classpath loader. Their versions, the compile-time dependencies, and test dependencies are centralized in `gradle/libs.versions.toml`; Gradle lock files make resolution repeatable.
 
 ### Formatting and linting
 
@@ -50,7 +50,7 @@ Paper/Folia and Velocity lifecycle bootstraps still require smoke testing on the
 
 ## Local development
 
-Import the project into IntelliJ as a Gradle project and use the included wrapper for all commands. Orchestra targets Java 25, so configure the project SDK and Gradle JVM to a Java 25 installation. Lombok is used at compile time; enable annotation processing in IntelliJ if generated constructors or accessors appear unresolved.
+Import the project into IntelliJ as a Gradle project and use the included wrapper for all commands. Orchestra targets Java 25, so configure the project SDK and Gradle JVM to a Java 25 installation.
 
 Useful development commands:
 
@@ -154,7 +154,7 @@ On first startup Orchestra copies `weekend_double_xp.yml` into the events direct
  Velocity proxy <---- Redis Pub/Sub ---- VelocityAgent ----> player routing / heartbeats
 
  Lifecycle listeners ----> metrics ----> authenticated /metrics endpoint
- AuditRepository callers --------------> audit repository
+ Authenticated operator actions -------> audit repository
 ```
 
 The engine uses at-least-once execution semantics. Before an external action runs, it receives an idempotency key composed from the execution, stage, action, and target server. Custom actions should pass that key to external systems that support deduplication. Completed action keys and execution variables are persisted with the execution.
@@ -223,7 +223,7 @@ actions:
       maximum-delay: 30s
 ```
 
-Built-in Paper actions are `broadcast`, `title`, `action_bar`, `command`, `toggle_joins`, `discord_webhook`, and the engine-local `set_variable` action. Built-in conditions are `online_players_at_least` and `variable_equals`. MiniMessage formatting is supported by message actions.
+Built-in Paper actions are `broadcast`, `title`, `action_bar`, `command`, `toggle_joins`, `discord_webhook`, `move_player`, `toggle_group_joins`, and the engine-local `set_variable` action. Proxy actions require Redis and accept a `proxy` argument identifying the Velocity agent. Built-in conditions are `online_players_at_least` and `variable_equals`. MiniMessage formatting is supported by message actions.
 
 ## Configuration
 
@@ -240,25 +240,31 @@ server:
 engine:
   workers: 4
   queue-capacity: 256
+  poll-interval-ms: 250
+  poll-batch-size: 256
+  lease-seconds: 600
+  shutdown-seconds: 10
 
 postgres:
   enabled: false
   jdbc-url: "jdbc:postgresql://localhost:5432/orchestra"
   username: "orchestra"
-  password: "change-me"
+  password: ""
+  password-environment-variable: "ORCHESTRA_POSTGRES_PASSWORD"
   maximum-pool-size: 8
 
 redis:
   enabled: false
   uri: "redis://localhost:6379/0"
+  uri-environment-variable: "ORCHESTRA_REDIS_URI"
   namespace: "orchestra"
 
 web:
   enabled: false
   bind: "127.0.0.1"
   port: 8787
-  tokens:
-    "replace-with-a-long-random-token": ADMINISTRATOR
+  token-environment-variable: "ORCHESTRA_WEB_TOKEN"
+  tokens: {}
 ```
 
 Give every backend a unique `server.id`. Groups and tags are matched by the local Paper target resolver. Worker and queue limits bound CPU concurrency and retained tasks. Size the PostgreSQL pool below the database connection limit after accounting for every backend process.
@@ -295,7 +301,7 @@ The embedded HTTP listener currently exposes:
 - `GET /metrics` - Prometheus text exposition requiring the `VIEW` permission
 - `POST /events/{eventId}/executions` - immediately trigger a loaded event definition, requiring the `OPERATE` permission
 
-Authenticated requests use `Authorization: Bearer <token>`. Token values map to `VIEWER`, `OPERATOR`, `APPROVER`, or `ADMINISTRATOR` roles in `web.tokens`. The current build does not expose event mutation endpoints or a browser dashboard.
+Authenticated requests use `Authorization: Bearer <token>`. Token values map to `VIEWER`, `OPERATOR`, or `ADMINISTRATOR` roles in `web.tokens`. Tokens must contain at least 24 characters; `ORCHESTRA_WEB_TOKEN` supplies an administrator token without storing it in YAML. Successful event starts create audit records. The current build does not expose event mutation endpoints or a browser dashboard.
 
 Trigger an event with an empty request body:
 
@@ -372,4 +378,6 @@ Dependencies point inward: platform and infrastructure adapters depend on the en
 - Back up PostgreSQL before changing plugin versions that introduce migrations.
 - Test event YAML and custom actions on a staging network before production use.
 - Treat Redis and PostgreSQL credentials, webhook URLs, and HTTP bearer tokens as secrets.
-- A lease is intentionally short-lived; long custom actions should be idempotent because another node may recover work after lease expiry.
+- Execution leases renew while work is active. Actions must remain idempotent because a process can fail after an external side effect and before persisting its completion key.
+
+Further design and deployment guidance lives in [`docs/architecture.md`](docs/architecture.md) and [`docs/operations.md`](docs/operations.md). See [`CONTRIBUTING.md`](CONTRIBUTING.md) for repository quality gates and [`SECURITY.md`](SECURITY.md) for private vulnerability reporting and secret-management guidance.

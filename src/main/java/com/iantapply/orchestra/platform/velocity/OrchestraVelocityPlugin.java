@@ -14,7 +14,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 
 /** Velocity bootstrap for the proxy-side Orchestra agent. */
-@Plugin(id = "orchestra", name = "Orchestra", version = "1.0.0", authors = "Gucci Fox")
+@Plugin(id = "orchestra", name = "Orchestra", version = BuildInfo.VERSION, authors = "Gucci Fox")
 public final class OrchestraVelocityPlugin {
     private final ProxyServer proxy;
     private final Logger logger;

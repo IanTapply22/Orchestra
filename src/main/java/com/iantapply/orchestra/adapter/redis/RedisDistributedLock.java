@@ -6,13 +6,13 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 
 /** Redis lease provider using atomic NX/PX acquisition and token-checked release. */
 public final class RedisDistributedLock implements DistributedLock {
     private static final String RELEASE =
             "if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end";
+    private static final String RENEW = "if redis.call('get',KEYS[1])==ARGV[1] "
+            + "then return redis.call('pexpire',KEYS[1],ARGV[2]) else return 0 end";
     private final URI uri;
     private final String namespace;
 
@@ -44,11 +44,22 @@ public final class RedisDistributedLock implements DistributedLock {
     }
 
     /** Lease retaining the random token required for owner-safe release. */
-    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     private final class RedisLease implements Lease {
         private final String key;
         private final String token;
         private final AtomicBoolean open = new AtomicBoolean(true);
+
+        private RedisLease(String key, String token) {
+            this.key = key;
+            this.token = token;
+        }
+
+        @Override
+        public boolean renew(Duration duration) {
+            if (!open.get()) return false;
+            Object result = command("EVAL", RENEW, "1", key, token, Long.toString(duration.toMillis()));
+            return Long.valueOf(1).equals(result);
+        }
 
         @Override
         public void close() {

@@ -13,8 +13,6 @@ class SecurityTest {
         assertTrue(Role.VIEWER.allows(Permission.VIEW));
         assertFalse(Role.VIEWER.allows(Permission.OPERATE));
         assertTrue(Role.OPERATOR.allows(Permission.OPERATE));
-        assertFalse(Role.OPERATOR.allows(Permission.APPROVE));
-        assertTrue(Role.APPROVER.allows(Permission.APPROVE));
         for (Permission permission : Permission.values()) {
             assertTrue(Role.ADMINISTRATOR.allows(permission));
         }
@@ -23,9 +21,9 @@ class SecurityTest {
     @Test
     void actorsValidateIdsAndEnforcePermissions() {
         assertThrows(IllegalArgumentException.class, () -> new Actor(" ", Role.VIEWER));
-        Actor actor = new Actor("staff", Role.OPERATOR);
+        Actor actor = new Actor("staff", Role.VIEWER);
 
-        assertDoesNotThrow(() -> actor.require(Permission.OPERATE));
-        assertThrows(SecurityException.class, () -> actor.require(Permission.APPROVE));
+        assertDoesNotThrow(() -> actor.require(Permission.VIEW));
+        assertThrows(SecurityException.class, () -> actor.require(Permission.OPERATE));
     }
 }

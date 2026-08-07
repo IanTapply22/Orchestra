@@ -3,6 +3,7 @@ package com.iantapply.orchestra.platform.paper.action;
 import com.iantapply.orchestra.api.ActionContext;
 import com.iantapply.orchestra.engine.ActionRegistry;
 import com.iantapply.orchestra.platform.paper.JoinGate;
+import com.iantapply.orchestra.velocity.ProxyCommandPublisher;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
@@ -16,6 +17,7 @@ public final class PaperActionRegistrar {
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private final MainThreadExecutor mainThread;
     private final JoinGate joinGate;
+    private final ProxyCommandPublisher proxyCommands;
 
     /**
      * Creates a registrar for one backend.
@@ -24,8 +26,20 @@ public final class PaperActionRegistrar {
      * @param joinGate server-local join gate controlled by event actions
      */
     public PaperActionRegistrar(Plugin plugin, JoinGate joinGate) {
+        this(plugin, joinGate, null);
+    }
+
+    /**
+     * Creates a registrar with optional Velocity command publishing.
+     *
+     * @param plugin owning Paper plugin
+     * @param joinGate local join gate
+     * @param proxyCommands proxy publisher, or {@code null} when Redis is disabled
+     */
+    public PaperActionRegistrar(Plugin plugin, JoinGate joinGate, ProxyCommandPublisher proxyCommands) {
         this.mainThread = new MainThreadExecutor(plugin);
         this.joinGate = joinGate;
+        this.proxyCommands = proxyCommands;
     }
 
     /**
@@ -77,6 +91,19 @@ public final class PaperActionRegistrar {
             return CompletableFuture.completedFuture(null);
         });
         registry.registerAction("discord_webhook", new DiscordWebhookAction());
+        registry.registerAction("move_player", context -> {
+            requireProxyCommands()
+                    .movePlayer(context.getString("proxy"), context.getString("player"), context.getString("server"));
+            return CompletableFuture.completedFuture(null);
+        });
+        registry.registerAction("toggle_group_joins", context -> {
+            requireProxyCommands()
+                    .setGroupJoins(
+                            context.getString("proxy"),
+                            context.getString("group"),
+                            Boolean.parseBoolean(context.getString("enabled")));
+            return CompletableFuture.completedFuture(null);
+        });
     }
 
     private void registerConditions(ActionRegistry registry) {
@@ -96,6 +123,13 @@ public final class PaperActionRegistrar {
 
     private Component message(ActionContext context, String key) {
         return miniMessage.deserialize(interpolate(context.getString(key), context));
+    }
+
+    private ProxyCommandPublisher requireProxyCommands() {
+        if (proxyCommands == null) {
+            throw new IllegalStateException("Proxy actions require redis.enabled=true");
+        }
+        return proxyCommands;
     }
 
     private static int integerArgument(Object value) {

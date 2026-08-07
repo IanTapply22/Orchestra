@@ -3,14 +3,16 @@ package com.iantapply.orchestra.platform.paper.action;
 import com.iantapply.orchestra.platform.paper.FoliaSupport;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 /** Bridges asynchronous engine work onto Paper's or Folia's global scheduler. */
-@RequiredArgsConstructor
 final class MainThreadExecutor {
     private final Plugin plugin;
+
+    MainThreadExecutor(Plugin plugin) {
+        this.plugin = plugin;
+    }
 
     /** Submits an operation and exposes its result without blocking the engine worker. */
     <T> CompletableFuture<T> submit(Callable<T> operation) {

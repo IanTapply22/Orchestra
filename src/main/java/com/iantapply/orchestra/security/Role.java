@@ -9,8 +9,6 @@ public enum Role {
     VIEWER(EnumSet.of(Permission.VIEW)),
     /** Read and execution-operation access. */
     OPERATOR(EnumSet.of(Permission.VIEW, Permission.OPERATE)),
-    /** Read and approval access. */
-    APPROVER(EnumSet.of(Permission.VIEW, Permission.APPROVE)),
     /** Every available permission. */
     ADMINISTRATOR(EnumSet.allOf(Permission.class));
 

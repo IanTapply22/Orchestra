@@ -112,6 +112,13 @@ public final class InMemoryStores implements DefinitionRepository, ExecutionRepo
         }
 
         @Override
+        public boolean renew(Duration duration) {
+            if (locks.get(key) != this) return false;
+            expiresAt = Instant.now().plus(duration);
+            return true;
+        }
+
+        @Override
         public void close() {
             locks.remove(key, this);
         }

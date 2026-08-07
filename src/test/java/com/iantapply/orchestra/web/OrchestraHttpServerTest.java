@@ -3,6 +3,7 @@ package com.iantapply.orchestra.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.iantapply.orchestra.audit.InMemoryAuditRepository;
 import com.iantapply.orchestra.metrics.MetricsRegistry;
 import com.iantapply.orchestra.security.Actor;
 import com.iantapply.orchestra.security.Role;
@@ -12,6 +13,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -60,6 +64,7 @@ class OrchestraHttpServerTest {
         int port = freePort();
         UUID executionId = UUID.randomUUID();
         AtomicReference<String> triggeredEvent = new AtomicReference<>();
+        InMemoryAuditRepository audit = new InMemoryAuditRepository(10);
         try (OrchestraHttpServer server = new OrchestraHttpServer(
                 new InetSocketAddress("127.0.0.1", port),
                 new MetricsRegistry(),
@@ -69,7 +74,9 @@ class OrchestraHttpServerTest {
                 definitionId -> {
                     triggeredEvent.set(definitionId);
                     return executionId;
-                })) {
+                },
+                audit,
+                Clock.fixed(Instant.EPOCH, ZoneOffset.UTC))) {
             server.start();
 
             HttpResponse<String> missing = post(port, "/events/weekend_double_xp/executions", null);
@@ -85,6 +92,12 @@ class OrchestraHttpServerTest {
                     accepted.body());
             assertTrue(
                     accepted.headers().firstValue("Content-Type").orElseThrow().contains("application/json"));
+            var entry = audit.recent(1).getFirst();
+            assertEquals(Instant.EPOCH, entry.occurredAt());
+            assertEquals("operator", entry.actor());
+            assertEquals("start_execution", entry.action());
+            assertEquals("event:weekend_double_xp", entry.resource());
+            assertEquals("execution:" + executionId, entry.detail());
         }
     }
 
@@ -108,6 +121,12 @@ class OrchestraHttpServerTest {
             assertEquals(404, invalidPath.statusCode());
             assertEquals(405, wrongMethod.statusCode());
             assertEquals("POST", wrongMethod.headers().firstValue("Allow").orElseThrow());
+
+            HttpResponse<String> healthPost = post(port, "/health", null);
+            HttpResponse<String> metricsPost = post(port, "/metrics", "operator-token");
+            assertEquals(405, healthPost.statusCode());
+            assertEquals(405, metricsPost.statusCode());
+            assertEquals("GET", metricsPost.headers().firstValue("Allow").orElseThrow());
         }
     }
 

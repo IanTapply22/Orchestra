@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Transport-facing Velocity agent; a proxy bootstrap supplies the small ProxyFacade implementation. */
 public final class VelocityAgent implements AutoCloseable {
+    private static final System.Logger LOGGER = System.getLogger(VelocityAgent.class.getName());
     private final String proxyId;
     private final NetworkTransport transport;
     private final ProxyFacade proxy;
@@ -37,7 +38,15 @@ public final class VelocityAgent implements AutoCloseable {
         }
 
         commands = transport.subscribe("velocity:" + proxyId, this::handle);
-        timer.scheduleWithFixedDelay(this::heartbeat, 0, 5, TimeUnit.SECONDS);
+        timer.scheduleWithFixedDelay(this::safeHeartbeat, 0, 5, TimeUnit.SECONDS);
+    }
+
+    private void safeHeartbeat() {
+        try {
+            heartbeat();
+        } catch (RuntimeException failure) {
+            LOGGER.log(System.Logger.Level.WARNING, "Could not publish Velocity heartbeat", failure);
+        }
     }
 
     private void heartbeat() {

@@ -8,22 +8,28 @@ server:
 engine:
   workers: 4
   queue-capacity: 256
+  poll-interval-ms: 250
+  poll-batch-size: 256
+  lease-seconds: 600
+  shutdown-seconds: 10
 
 postgres:
   enabled: false
   jdbc-url: "jdbc:postgresql://localhost:5432/orchestra"
   username: "orchestra"
-  password: "change-me"
+  password: ""
+  password-environment-variable: "ORCHESTRA_POSTGRES_PASSWORD"
   maximum-pool-size: 8
 
 redis:
   enabled: false
   uri: "redis://localhost:6379/0"
+  uri-environment-variable: "ORCHESTRA_REDIS_URI"
   namespace: "orchestra"
 
 web:
   enabled: false
   bind: "127.0.0.1"
   port: 8787
-  tokens:
-    "replace-with-a-long-random-token": ADMINISTRATOR
+  token-environment-variable: "ORCHESTRA_WEB_TOKEN"
+  tokens: {}

@@ -1,0 +1,20 @@
+[versions]
+h2 = "2.4.240"
+hikari = "7.0.2"
+junit = "6.0.1"
+paper = "26.2.build.111-stable"
+postgresql = "42.7.12"
+velocity = "3.4.0"
+testcontainers = "2.0.5"
+
+[libraries]
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
+velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }

@@ -5,11 +5,5 @@ public enum Permission {
     /** Read operational state and metrics. */
     VIEW,
     /** Start, pause, resume, cancel, or retry executions. */
-    OPERATE,
-    /** Approve a protected operation. */
-    APPROVE,
-    /** Deploy event configuration. */
-    DEPLOY,
-    /** Perform unrestricted administrative operations. */
-    ADMIN
+    OPERATE
 }
