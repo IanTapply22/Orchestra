@@ -147,6 +147,10 @@ Each execution advances through its configured stages. Orchestra persists state 
 | `orchestra-platform-velocity` | Velocity bootstrap and proxy command agent |
 | `orchestra-distribution` | Combined artifact, publication, local server, and infrastructure tests |
 
+## Developer API
+
+Plugin developers can start and schedule definitions, observe and control executions, register Java definitions, and provide custom actions or conditions through the public `OrchestraService`. See the [developer API guide](modules/orchestra-api/README.md) for dependency setup and complete examples.
+
 ## Operational model
 
 Executions use optimistic versions and renewable owner-checked leases. Completed action keys prevent ordinary replay, but the external side effect and its completion write cannot be atomic: actions are therefore **at-least-once** and should pass `ActionContext.idempotencyKey()` to systems that support deduplication.

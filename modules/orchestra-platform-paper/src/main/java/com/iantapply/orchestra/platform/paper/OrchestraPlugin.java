@@ -7,8 +7,14 @@ import com.iantapply.orchestra.adapter.postgres.PostgresExecutionRepository;
 import com.iantapply.orchestra.adapter.postgres.PostgresSettings;
 import com.iantapply.orchestra.adapter.redis.RedisDistributedLock;
 import com.iantapply.orchestra.adapter.redis.RedisTransport;
+import com.iantapply.orchestra.api.EventDefinition;
+import com.iantapply.orchestra.api.EventLifecycleListener;
+import com.iantapply.orchestra.api.OrchestraAction;
+import com.iantapply.orchestra.api.OrchestraCondition;
+import com.iantapply.orchestra.api.OrchestraService;
 import com.iantapply.orchestra.audit.AuditRepository;
 import com.iantapply.orchestra.audit.InMemoryAuditRepository;
+import com.iantapply.orchestra.domain.EventExecution;
 import com.iantapply.orchestra.engine.ActionRegistry;
 import com.iantapply.orchestra.engine.EngineOptions;
 import com.iantapply.orchestra.engine.OrchestratorEngine;
@@ -30,20 +36,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /** Paper entry point. All platform wiring lives here; orchestration behavior does not. */
-public final class OrchestraPlugin extends JavaPlugin {
+public final class OrchestraPlugin extends JavaPlugin implements OrchestraService {
     private OrchestratorEngine engine;
+    private ActionRegistry actionRegistry;
+    private DefinitionRepository definitionRepository;
+    private ExecutionRepository executionRepository;
     private final List<AutoCloseable> resources = new ArrayList<>();
 
     /** Creates the Paper plugin entry point. */
@@ -61,6 +74,9 @@ public final class OrchestraPlugin extends JavaPlugin {
         JoinGate joinGate = new JoinGate();
 
         engine = createEngine(infrastructure, registry, clock, metrics);
+        actionRegistry = registry;
+        definitionRepository = infrastructure.definitions();
+        executionRepository = infrastructure.executions();
         registerActions(registry, joinGate, infrastructure.proxyCommands());
         Bukkit.getPluginManager().registerEvents(joinGate, this);
 
@@ -70,6 +86,7 @@ public final class OrchestraPlugin extends JavaPlugin {
 
         engine.recover();
         engine.start();
+        Bukkit.getServicesManager().register(OrchestraService.class, this, this, ServicePriority.Normal);
 
         startRecurringScheduler(infrastructure, clock, metrics);
         startWebServer(metrics, infrastructure.audit(), clock);
@@ -81,6 +98,7 @@ public final class OrchestraPlugin extends JavaPlugin {
     /** Stops the engine and closes owned resources in reverse creation order. */
     @Override
     public void onDisable() {
+        Bukkit.getServicesManager().unregisterAll(this);
         if (engine != null) {
             engine.close();
         }
@@ -106,6 +124,82 @@ public final class OrchestraPlugin extends JavaPlugin {
             throw new IllegalStateException("Orchestra is not enabled");
         }
         return engine;
+    }
+
+    @Override
+    public void registerDefinition(EventDefinition definition) {
+        requireEnabled();
+        definitionRepository.save(Objects.requireNonNull(definition));
+    }
+
+    @Override
+    public void registerAction(String type, OrchestraAction action) {
+        requireEnabled();
+        actionRegistry.registerAction(type, action);
+    }
+
+    @Override
+    public void registerCondition(String type, OrchestraCondition condition) {
+        requireEnabled();
+        actionRegistry.registerCondition(type, condition);
+    }
+
+    @Override
+    public UUID startNow(String definitionId) {
+        return engine().startNow(definitionId);
+    }
+
+    @Override
+    public UUID schedule(String definitionId, Instant startAt, Map<String, Object> variables) {
+        return engine().schedule(definitionId, startAt, variables);
+    }
+
+    @Override
+    public void addListener(EventLifecycleListener listener) {
+        engine().addListener(listener);
+    }
+
+    @Override
+    public boolean pause(UUID executionId) {
+        return engine().pause(executionId);
+    }
+
+    @Override
+    public boolean resume(UUID executionId) {
+        return engine().resume(executionId);
+    }
+
+    @Override
+    public boolean cancel(UUID executionId) {
+        return engine().cancel(executionId);
+    }
+
+    @Override
+    public boolean retry(UUID executionId) {
+        return engine().retry(executionId);
+    }
+
+    @Override
+    public boolean setVariable(UUID executionId, String key, Object value) {
+        return engine().setVariable(executionId, key, value);
+    }
+
+    @Override
+    public Optional<EventExecution> execution(UUID executionId) {
+        requireEnabled();
+        return executionRepository.find(executionId);
+    }
+
+    @Override
+    public Collection<EventDefinition> definitions() {
+        requireEnabled();
+        return List.copyOf(definitionRepository.findAll());
+    }
+
+    private void requireEnabled() {
+        if (engine == null || actionRegistry == null || definitionRepository == null || executionRepository == null) {
+            throw new IllegalStateException("Orchestra is not enabled");
+        }
     }
 
     private Infrastructure createInfrastructure(MetricsRegistry metrics) {

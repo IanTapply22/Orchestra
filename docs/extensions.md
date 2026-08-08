@@ -1,10 +1,10 @@
 # Extensions
 
-Other plugins can obtain the enabled Paper engine through `OrchestraPlugin.engine()` and register lifecycle listeners, schedule definitions, or call execution controls. Public extension contracts live in `orchestra-api`; depend on that module instead of platform or adapter internals.
+Other plugins obtain `OrchestraService` from Paper's service manager. The service starts and schedules definitions, exposes execution controls and lifecycle listeners, and registers Java definitions, custom actions, and custom conditions. Public extension contracts live in `orchestra-api`; depend on that module instead of platform or adapter internals. See the [developer API guide](../modules/orchestra-api/README.md) for setup and complete examples.
 
 ## Actions and conditions
 
-Register actions and conditions through `ActionRegistry`. Implementations return `CompletionStage` values and must not block the server thread. External actions should use `ActionContext.idempotencyKey()` when the destination supports deduplication.
+Register actions and conditions through `OrchestraService`. Implementations return `CompletionStage` values and must not block the server thread. External actions should use `ActionContext.idempotencyKey()` when the destination supports deduplication.
 
 Built-in actions:
 
