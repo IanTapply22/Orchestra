@@ -1,12 +1,12 @@
 [versions]
 h2 = "2.4.240"
-hikari = "7.0.2"
-junit = "6.0.1"
+hikari = "7.1.0"
+junit = "6.1.2"
 paper = "26.2.build.111-stable"
-postgresql = "42.7.12"
-velocity = "3.4.0"
+postgresql = "42.7.13"
+velocity = "4.0.0"
 testcontainers = "2.0.5"
-archunit = "1.4.2"
+archunit = "1.5.0"
 awaitility = "4.3.0"
 
 [libraries]
