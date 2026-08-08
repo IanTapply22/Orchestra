@@ -69,18 +69,6 @@ public final class EventDefinitionDirectory {
         }
     }
 
-    /**
-     * Replaces runtime definitions only when every file is valid.
-     *
-     * @param repository destination repository
-     * @return immutable validation report
-     */
-    public DefinitionValidationReport reloadInto(DefinitionRepository repository) {
-        DefinitionValidationReport report = validate();
-        if (report.valid()) repository.replaceAll(report.definitions());
-        return report;
-    }
-
     static DefinitionValidationReport validateDirectory(Path directory) throws IOException {
         YamlEventLoader loader = new YamlEventLoader();
         List<EventDefinition> definitions = new ArrayList<>();

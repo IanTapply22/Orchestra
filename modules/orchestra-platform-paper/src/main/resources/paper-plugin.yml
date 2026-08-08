@@ -1,8 +1,12 @@
 api-version: "26.2"
 name: Orchestra
-version: "1.1.0"
+version: "1.1.1"
 main: com.iantapply.orchestra.platform.paper.OrchestraPlugin
 loader: com.iantapply.orchestra.platform.paper.OrchestraLoader
 description: "Orchestrates network and server-wide schedules and events without the need for custom code"
 authors: ["Gucci Fox"]
 prefix: Orchestra
+permissions:
+  orchestra.admin:
+    description: "Allows access to Orchestra administration commands"
+    default: op

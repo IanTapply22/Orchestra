@@ -48,6 +48,23 @@ Set `API_BASELINE_VERSION` in CI to the latest released API version to make `che
 
 The included `weekend_double_xp.yml` demonstrates a recurring, targeted, multi-stage event.
 
+### Administration commands
+
+Operators with the `orchestra.admin` permission can use the deliberately small Paper command suite:
+
+```text
+/orchestra status
+/orchestra events
+/orchestra validate
+/orchestra reload
+/orchestra start <event>
+/orchestra cancel <execution>
+/orchestra executions
+/orchestra diagnostics
+```
+
+`validate` never changes runtime state. `reload` validates the complete event directory and replaces the active definitions only when every file is valid. Event IDs and active execution IDs are suggested by Paper's Brigadier command client.
+
 ### Example library
 
 On first startup, Orchestra writes safe, inactive templates to `plugins/Orchestra/examples/`:

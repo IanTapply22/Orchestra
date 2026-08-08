@@ -1,16 +1,19 @@
 package com.iantapply.orchestra.platform.paper;
 
 import com.iantapply.orchestra.administration.DefaultOrchestraService;
+import com.iantapply.orchestra.administration.OrchestraAdministrationService;
 import com.iantapply.orchestra.api.OrchestraService;
 import com.iantapply.orchestra.audit.AuditRepository;
 import com.iantapply.orchestra.engine.ActionRegistry;
 import com.iantapply.orchestra.engine.OrchestratorEngine;
 import com.iantapply.orchestra.metrics.MetricsRegistry;
 import com.iantapply.orchestra.platform.paper.action.PaperActionRegistrar;
+import com.iantapply.orchestra.platform.paper.command.OrchestraCommands;
 import com.iantapply.orchestra.port.ExecutionRepository;
 import com.iantapply.orchestra.schedule.RecurringEventScheduler;
 import com.iantapply.orchestra.security.Actor;
 import com.iantapply.orchestra.web.OrchestraHttpServer;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,12 +57,17 @@ public final class OrchestraPlugin extends JavaPlugin {
 
         new PaperActionRegistrar(this, joinGate, infrastructure.proxyCommands()).registerInto(actions);
         Bukkit.getPluginManager().registerEvents(joinGate, this);
-        new EventDefinitionDirectory(this).loadInto(infrastructure.definitions());
+        EventDefinitionDirectory definitionDirectory = new EventDefinitionDirectory(this);
+        definitionDirectory.loadInto(infrastructure.definitions());
         configureMetrics(metrics, infrastructure.executions());
 
         engine.recover();
         engine.start();
         Bukkit.getServicesManager().register(OrchestraService.class, service, this, ServicePriority.Normal);
+        registerCommands(
+                new OrchestraAdministrationService(
+                        service, infrastructure.definitions(), definitionDirectory::validate),
+                settings);
         startRecurringScheduler(infrastructure, clock, metrics);
         startWebServer(settings, metrics, infrastructure.audit(), clock);
 
@@ -95,6 +103,13 @@ public final class OrchestraPlugin extends JavaPlugin {
         engine.addListener((before, after) ->
                 getLogger().info("Event %s: %s -> %s".formatted(after.id(), before.status(), after.status())));
         engine.addListener((before, after) -> metrics.increment("orchestra_event_transitions_total"));
+    }
+
+    private void registerCommands(OrchestraAdministrationService administration, PaperSettings settings) {
+        OrchestraCommands commands =
+                new OrchestraCommands(administration, () -> PaperDiagnostics.create(this, settings));
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar()
+                .register(commands.create(), "Administer Orchestra events"));
     }
 
     private void startRecurringScheduler(PaperInfrastructure infrastructure, Clock clock, MetricsRegistry metrics) {
