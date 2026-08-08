@@ -48,6 +48,82 @@ Set `API_BASELINE_VERSION` in CI to the latest released API version to make `che
 
 The included `weekend_double_xp.yml` demonstrates a recurring, targeted, multi-stage event.
 
+## How it works
+
+```text
+                                      ORCHESTRA
+
+  CONFIGURATION                                                     TRIGGERS
+
+  events/*.yml ------------------+                     +---- Cron scheduler
+                                 |                     |
+                                 v                     +---- HTTP/API request
+                      +---------------------+          |
+                      | Schema validation   |          +---- /orchestra command
+                      | IDs, fields, paths, |          |
+                      | schedules, retries  |          +---- Plugin extension
+                      +----------+----------+          |
+                                 |                     +---- Startup recovery
+                                 v                     |
+                      +---------------------+          |
+                      | Definition store    |<---------+
+                      +----------+----------+
+                                 |
+                                 v
+  config.yml ---------->+---------------------+<---------- orchestra.properties
+  environment variables | Orchestrator engine |           environment/secret files
+  secret files -------->|                     |<---------- Velocity configuration
+                        +----+------------+---+
+                             |            |
+                 resolve targets          | acquire/renew ownership lease
+                             |            |
+                             v            v
+                  +----------------+   +----------------+
+                  | Paper/Folia    |   | Redis lock    |----+
+                  | server identity|   | or memory lock|    |
+                  | groups + tags  |   +----------------+    |
+                  +-------+--------+                           |
+                          | eligible                          |
+                          v                                   |
+                  +----------------+                          |
+                  | Execution      |<-------------------------+
+                  | state machine  |
+                  +-------+--------+
+                          |
+            +-------------+-------------------+
+            |                                 |
+            v                                 v
+  +---------------------+          +-------------------------+
+  | PostgreSQL           |          | Action registry         |
+  | executions + audit   |          | built-in + extensions   |
+  | or in-memory storage |          +------------+------------+
+  +----------+----------+                       |
+             ^                       +-----------+-----------+
+             |                       |                       |
+             |                       v                       v
+             |            +--------------------+   +--------------------+
+             |            | Paper/Folia action |   | Proxy command      |
+             |            | command, message,  |   | publisher          |
+             |            | variable, webhook  |   +---------+----------+
+             |            +---------+----------+             |
+             |                      |                  Redis Pub/Sub
+             |                      v                         |
+             |              Server / players                 v
+             |                                     +--------------------+
+             |                                     | Velocity agent     |
+             |                                     | route players and  |
+             |                                     | enforce proxy state|
+             |                                     +---------+----------+
+             |                                               |
+             +---- persist completion, retry, or next stage -+
+
+  OPERATIONS
+
+  /health + /metrics + audit history <---- runtime state ----> logs + diagnostics
+```
+
+Each execution advances through its configured stages. Orchestra persists state before and after work, records completed action keys for idempotency, renews its ownership lease while active, and either advances, retries according to policy, or finishes in a terminal state. After a restart, active durable executions are loaded from PostgreSQL and returned to the engine.
+
 ## Modules
 
 | Module | Responsibility |
