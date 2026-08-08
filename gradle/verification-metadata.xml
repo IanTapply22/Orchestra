@@ -1765,5 +1765,45 @@
       </component>
       <component group="xyz.jpenilla.run-paper" name="xyz.jpenilla.run-paper.gradle.plugin" version="3.0.2">
       </component>
+      <component group="com.sun.xml.bind" name="jaxb-core" version="4.0.3">
+         <artifact name="jaxb-core-4.0.3.jar">
+            <sha256 value="d6c41bb75b14a7f44da3d3cc53fe62567b9f413037baf603016bcc5b7cb79b47" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
+      <component group="com.sun.xml.bind" name="jaxb-impl" version="4.0.3">
+         <artifact name="jaxb-impl-4.0.3.jar">
+            <sha256 value="b87ecac04afdf34f459197f493ab6e9efb358dee3540c05c62e37cf9bfb92b6f" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
+      <component group="jakarta.activation" name="jakarta.activation-api" version="2.1.2">
+         <artifact name="jakarta.activation-api-2.1.2.jar">
+            <sha256 value="f53f578dd0eb4170c195a4e215c59a38abfb4123dcb95dd902fef92876499fbb" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
+      <component group="jakarta.xml.bind" name="jakarta.xml.bind-api" version="4.0.0">
+         <artifact name="jakarta.xml.bind-api-4.0.0.jar">
+            <sha256 value="57e3796ad5753640088f5f9d3c53c183f2c250b7dad90529ea3e19a5515aa122" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
+      <component group="javax.activation" name="activation" version="1.1.1">
+         <artifact name="activation-1.1.1.jar">
+            <sha256 value="ae475120e9fcd99b4b00b38329bd61cdc5eb754eee03fe66c01f50e137724f99" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
+      <component group="javax.activation" name="javax.activation-api" version="1.2.0">
+         <artifact name="javax.activation-api-1.2.0.jar">
+            <sha256 value="43fdef0b5b6ceb31b0424b208b930c74ab58fac2ceeb7b3f6fd3aeb8b5ca4393" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
+      <component group="javax.xml.bind" name="jaxb-api" version="2.3.1">
+         <artifact name="jaxb-api-2.3.1.jar">
+            <sha256 value="88b955a0df57880a26a74708bc34f74dcaf8ebf4e78843a28b50eae945732b06" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
+      <component group="org.eclipse.angus" name="angus-activation" version="2.0.1">
+         <artifact name="angus-activation-2.0.1.jar">
+            <sha256 value="b226761815868edf8964c1d71e6d2d54ab238c2788507061b4e0633933b4c131" origin="Verified from Maven Central"/>
+         </artifact>
+      </component>
    </components>
 </verification-metadata>

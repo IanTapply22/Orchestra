@@ -170,6 +170,12 @@ spotless {
 }
 
 val moduleProjects = subprojects.filter { it.name != "orchestra-distribution" }
+val aggregateCoverageExclusions =
+    listOf(
+        "**/platform/paper/OrchestraLoader*.class",
+        "**/platform/paper/OrchestraPlugin*.class",
+        "**/platform/velocity/OrchestraVelocityPlugin*.class",
+    )
 
 val aggregateJavadoc =
     tasks.register<Sync>("javadoc") {
@@ -195,12 +201,14 @@ val aggregateCoverageReport =
             },
         )
         classDirectories.from(
-            moduleProjects.map {
-                it.extensions
+            moduleProjects.map { module ->
+                module.extensions
                     .getByType<SourceSetContainer>()
                     .named("main")
                     .get()
                     .output
+                    .asFileTree
+                    .matching { exclude(aggregateCoverageExclusions) }
             },
         )
         reports {

@@ -47,7 +47,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Verify, build, create SBOM and publish
-        run: ./gradlew clean check javadoc jar cyclonedxBom publish --no-daemon
+        run: ./gradlew clean check javadoc jar cyclonedxBom publish --no-daemon --no-configuration-cache
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

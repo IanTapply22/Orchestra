@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -256,12 +257,13 @@ public final class OrchestraPlugin extends JavaPlugin {
     }
 
     private String secret(String configPath, String environmentPath, String filePath) {
-        String environmentName = getConfig().getString(environmentPath, "");
+        String environmentName = Objects.requireNonNullElse(getConfig().getString(environmentPath), "");
         String environmentValue = environmentName.isBlank() ? null : System.getenv(environmentName);
         String fileValue = readOptionalSecretFile(filePath);
+        String configuredValue = Objects.requireNonNullElse(getConfig().getString(configPath), "");
         String value = environmentValue != null && !environmentValue.isBlank()
                 ? environmentValue
-                : fileValue != null ? fileValue : getConfig().getString(configPath, "");
+                : fileValue != null ? fileValue : configuredValue;
         if (value.isBlank() || value.equals("change-me")) {
             throw new IllegalArgumentException("Missing secure value for " + configPath);
         }
@@ -269,7 +271,7 @@ public final class OrchestraPlugin extends JavaPlugin {
     }
 
     private String readOptionalSecretFile(String configPath) {
-        String configuredPath = getConfig().getString(configPath, "");
+        String configuredPath = Objects.requireNonNullElse(getConfig().getString(configPath), "");
         if (configuredPath.isBlank()) return null;
         Path path = Path.of(configuredPath).toAbsolutePath().normalize();
         try {
