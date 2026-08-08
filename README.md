@@ -53,8 +53,6 @@ The included `weekend_double_xp.yml` demonstrates a recurring, targeted, multi-s
 | `orchestra-platform-velocity` | Velocity bootstrap and proxy command agent |
 | `orchestra-distribution` | Combined artifact, publication, local server, and infrastructure tests |
 
-ArchUnit and Gradle project dependencies enforce inward-facing boundaries. See [architecture](docs/architecture.md) for execution guarantees and design decisions.
-
 ## Operational model
 
 Executions use optimistic versions and renewable owner-checked leases. Completed action keys prevent ordinary replay, but the external side effect and its completion write cannot be atomic: actions are therefore **at-least-once** and should pass `ActionContext.idempotencyKey()` to systems that support deduplication.

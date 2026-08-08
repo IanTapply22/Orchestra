@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -30,6 +31,8 @@ import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers(disabledWithoutDocker = true)
 class InfrastructureIntegrationTest {
+    private static final Duration REDIS_READY_TIMEOUT = Duration.ofSeconds(30);
+
     @Container
     private static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"));
@@ -38,6 +41,11 @@ class InfrastructureIntegrationTest {
     private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:8-alpine"))
             .withCommand("redis-server", "--requirepass", "integration-secret")
             .withExposedPorts(6379);
+
+    @BeforeEach
+    void awaitRedisReady() {
+        await().atMost(REDIS_READY_TIMEOUT).until(InfrastructureIntegrationTest::redisAcceptsConnections);
+    }
 
     @Test
     void migrationsAndExecutionCompareAndSetWorkOnPostgresql() throws Exception {
@@ -96,7 +104,7 @@ class InfrastructureIntegrationTest {
     }
 
     @Test
-    void redisPubSubReconnectsAfterServerRestart() {
+    void redisPubSubReconnectsAfterConnectionLoss() throws Exception {
         AtomicInteger reconnects = new AtomicInteger();
         AtomicInteger messages = new AtomicInteger();
         try (RedisTransport transport =
@@ -104,9 +112,20 @@ class InfrastructureIntegrationTest {
             transport.subscribe("events", ignored -> messages.incrementAndGet());
             await().atMost(Duration.ofSeconds(5)).until(() -> publishUntilReceived(transport, messages, 1));
 
-            REDIS.getDockerClient().restartContainerCmd(REDIS.getContainerId()).exec();
-            await().atMost(Duration.ofSeconds(10)).until(() -> reconnects.get() > 0);
-            await().atMost(Duration.ofSeconds(10)).until(() -> publishUntilReceived(transport, messages, 2));
+            var result =
+                    REDIS.execInContainer("redis-cli", "-a", "integration-secret", "CLIENT", "KILL", "TYPE", "pubsub");
+            assertEquals(0, result.getExitCode(), result.getStderr());
+            await().atMost(REDIS_READY_TIMEOUT).until(() -> reconnects.get() > 0);
+            await().atMost(REDIS_READY_TIMEOUT).until(() -> publishUntilReceived(transport, messages, 2));
+        }
+    }
+
+    private static boolean redisAcceptsConnections() {
+        try (RedisTransport probe = new RedisTransport(redisUri(), "readiness")) {
+            probe.publish("health", new byte[0]);
+            return true;
+        } catch (IllegalStateException ignored) {
+            return false;
         }
     }
 
