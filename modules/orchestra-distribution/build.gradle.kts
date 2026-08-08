@@ -88,21 +88,4 @@ publishing {
             }
         }
     }
-
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            val repository =
-                providers
-                    .environmentVariable("GITHUB_REPOSITORY")
-                    .orElse("IanTapply22/Orchestra")
-                    .get()
-                    .lowercase()
-            url = uri("https://maven.pkg.github.com/$repository")
-            credentials {
-                username = providers.environmentVariable("GITHUB_ACTOR").orNull
-                password = providers.environmentVariable("GITHUB_TOKEN").orNull
-            }
-        }
-    }
 }

@@ -21,6 +21,7 @@ class YamlEventLoaderTest {
     @Test
     void loadsSchedulesTargetsConditionsAndBothActionForms() throws Exception {
         Path file = write("event.yml", """
+                schema-version: 1
                 id: NETWORK_EVENT
                 display-name: "Network Event"
                 schedule:
@@ -71,6 +72,7 @@ class YamlEventLoaderTest {
     @Test
     void supportsAllOnlineAndDefaultDisplayName() throws Exception {
         Path file = write("simple.yaml", """
+                schema-version: 1
                 id: simple_event
                 targets:
                   all-online: true
@@ -89,8 +91,35 @@ class YamlEventLoaderTest {
     @Test
     void rejectsMissingFilesAndInvalidDefinitions() throws Exception {
         assertThrows(IOException.class, () -> new YamlEventLoader().load(directory.resolve("missing.yml")));
-        Path invalid = write("invalid.yml", "display-name: Missing id\nstages: []\n");
+        Path invalid = write("invalid.yml", "schema-version: 1\ndisplay-name: Missing id\nstages: []\n");
         assertThrows(IllegalArgumentException.class, () -> new YamlEventLoader().load(invalid));
+    }
+
+    @Test
+    void reportsPrecisePathsUnknownFieldsAndDuplicateIds() throws Exception {
+        Path invalid = write("invalid-shapes.yml", """
+                schema-version: 1
+                id: invalid
+                targets:
+                  all-online: true
+                stages:
+                  - id: first
+                    actions:
+                      - id: repeated
+                        type: broadcast
+                        message: hello
+                        retry:
+                          max-attempts: nope
+                """);
+
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> new YamlEventLoader().load(invalid));
+        assertTrue(failure.getMessage().contains("stages[0].actions[0].retry.max-attempts"), failure::getMessage);
+
+        Path unknown = write("unknown.yml", "schema-version: 1\nid: unknown\nextra: value\nstages: []\n");
+        IllegalArgumentException unknownFailure =
+                assertThrows(IllegalArgumentException.class, () -> new YamlEventLoader().load(unknown));
+        assertTrue(unknownFailure.getMessage().contains("extra: unknown field"));
     }
 
     private Path write(String name, String content) throws IOException {

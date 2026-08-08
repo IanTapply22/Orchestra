@@ -1,36 +1,80 @@
-name: Publish Package to GitHub Packages
+name: Release
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish Gradle package
-    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release') }}
+  release:
+    name: Verify, publish and release
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     environment: jdk25-publishing
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Set up JDK ${{ vars.JAVA_VERSION }}
+      - name: Validate semantic version tag
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Expected a semantic version tag such as v1.2.3; got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          echo "ORCHESTRA_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
-          java-version: ${{ vars.JAVA_VERSION }}
-          distribution: ${{ vars.JAVA_DISTRIBUTION }}
+          java-version: 25
+          distribution: temurin
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Verify and publish with Gradle
-        run: bash ./gradlew clean test publish --no-daemon
+      - name: Verify, build, create SBOM and publish
+        run: ./gradlew clean check javadoc jar cyclonedxBom publish --no-daemon
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          API_BASELINE_VERSION: ${{ vars.API_BASELINE_VERSION }}
+
+      - name: Create SHA-256 checksum
+        shell: bash
+        run: sha256sum "build/libs/Orchestra-${ORCHESTRA_VERSION}.jar" > "build/libs/Orchestra-${ORCHESTRA_VERSION}.jar.sha256"
+
+      - name: Attest plugin artifact
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: build/libs/Orchestra-${{ env.ORCHESTRA_VERSION }}.jar
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "build/libs/Orchestra-${ORCHESTRA_VERSION}.jar" \
+            "build/libs/Orchestra-${ORCHESTRA_VERSION}.jar.sha256" \
+            build/reports/cyclonedx/bom.json \
+            build/reports/cyclonedx/bom.xml \
+            --verify-tag \
+            --generate-notes \
+            --title "Orchestra ${ORCHESTRA_VERSION}"

@@ -63,7 +63,8 @@ public final class OrchestraPlugin extends JavaPlugin {
         registerActions(registry, joinGate, infrastructure.proxyCommands());
         Bukkit.getPluginManager().registerEvents(joinGate, this);
 
-        int loadedDefinitions = new EventDefinitionDirectory(this).loadInto(infrastructure.definitions());
+        EventDefinitionDirectory definitionDirectory = new EventDefinitionDirectory(this);
+        int loadedDefinitions = definitionDirectory.loadInto(infrastructure.definitions());
         configureMetrics(metrics, infrastructure.executions());
 
         engine.recover();
@@ -149,7 +150,7 @@ public final class OrchestraPlugin extends JavaPlugin {
 
     private URI redisUri() {
         String environmentName = getConfig().getString("redis.uri-environment-variable", "ORCHESTRA_REDIS_URI");
-        String environmentValue = environmentName == null ? null : System.getenv(environmentName);
+        String environmentValue = System.getenv(environmentName);
         String fileValue = readOptionalSecretFile("redis.uri-file");
         String configured = getConfig().getString("redis.uri", "redis://localhost:6379/0");
         String value = environmentValue != null && !environmentValue.isBlank()
@@ -236,7 +237,7 @@ public final class OrchestraPlugin extends JavaPlugin {
         }
 
         String environmentName = getConfig().getString("web.token-environment-variable", "ORCHESTRA_WEB_TOKEN");
-        String environmentToken = environmentName == null ? null : System.getenv(environmentName);
+        String environmentToken = System.getenv(environmentName);
         if (environmentToken != null && !environmentToken.isBlank()) {
             addToken(result, environmentToken, Role.ADMINISTRATOR.name());
         }
@@ -256,13 +257,12 @@ public final class OrchestraPlugin extends JavaPlugin {
 
     private String secret(String configPath, String environmentPath, String filePath) {
         String environmentName = getConfig().getString(environmentPath, "");
-        String environmentValue =
-                environmentName == null || environmentName.isBlank() ? null : System.getenv(environmentName);
+        String environmentValue = environmentName.isBlank() ? null : System.getenv(environmentName);
         String fileValue = readOptionalSecretFile(filePath);
         String value = environmentValue != null && !environmentValue.isBlank()
                 ? environmentValue
                 : fileValue != null ? fileValue : getConfig().getString(configPath, "");
-        if (value == null || value.isBlank() || value.equals("change-me")) {
+        if (value.isBlank() || value.equals("change-me")) {
             throw new IllegalArgumentException("Missing secure value for " + configPath);
         }
         return value;
@@ -270,7 +270,7 @@ public final class OrchestraPlugin extends JavaPlugin {
 
     private String readOptionalSecretFile(String configPath) {
         String configuredPath = getConfig().getString(configPath, "");
-        if (configuredPath == null || configuredPath.isBlank()) return null;
+        if (configuredPath.isBlank()) return null;
         Path path = Path.of(configuredPath).toAbsolutePath().normalize();
         try {
             if (!Files.isRegularFile(path)) {

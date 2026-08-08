@@ -10,6 +10,28 @@ dependencies {
     compileOnly(libs.postgresql)
 }
 
+val eventValidatorRuntime = configurations.create("eventValidatorRuntime")
+dependencies {
+    eventValidatorRuntime(libs.paper.api)
+}
+
+tasks.register<JavaExec>("validateEvents") {
+    group = "verification"
+    description = "Validates schema-versioned Orchestra event YAML files."
+    dependsOn(tasks.classes)
+    classpath = sourceSets.main.get().runtimeClasspath + eventValidatorRuntime
+    mainClass = "com.iantapply.orchestra.platform.paper.ValidateEventsMain"
+    val eventDirectory =
+        providers
+            .gradleProperty("orchestra.eventsDir")
+            .orElse(
+                layout.projectDirectory
+                    .dir("src/main/resources/events")
+                    .asFile.absolutePath,
+            )
+    argumentProviders.add(CommandLineArgumentProvider { listOf(eventDirectory.get()) })
+}
+
 val generatedResources = layout.buildDirectory.dir("generated/resources/orchestra")
 val generateRuntimeLibraryVersions =
     tasks.register<Copy>("generateRuntimeLibraryVersions") {

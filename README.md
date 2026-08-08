@@ -6,7 +6,7 @@ Orchestra is a Paper, Folia, and Velocity plugin suite for durable, multi-stage 
 
 - Java 25
 - Paper or Folia 26.2
-- Velocity 3.4 when proxy actions are used
+- Velocity 4.0 when proxy actions are used
 - PostgreSQL for durable executions and audit history (optional)
 - Redis for distributed leases and proxy messaging (optional)
 
@@ -31,6 +31,12 @@ Useful tasks:
 ./gradlew integrationTest  # real PostgreSQL/Redis tests; skips without Docker
 ./gradlew runServer        # disposable local Paper server
 ```
+
+## Releases and publications
+
+Pushing a semantic version tag such as `v1.2.3` runs the release workflow. It verifies the project, publishes `orchestra-api`, `orchestra-core`, and the combined `orchestra` artifact to GitHub Packages, then creates a GitHub Release containing the plugin JAR, SHA-256 checksum, and CycloneDX SBOM. Maven publications are PGP-signed when the `SIGNING_KEY` and `SIGNING_PASSWORD` secrets are configured; the release JAR also receives a GitHub build-provenance attestation.
+
+Set `API_BASELINE_VERSION` in CI to the latest released API version to make `check` reject incompatible public API changes. See [the dependency verification policy](docs/dependency-verification.md) for checksum maintenance.
 
 ## Quick start
 
@@ -58,3 +64,5 @@ The included `weekend_double_xp.yml` demonstrates a recurring, targeted, multi-s
 Executions use optimistic versions and renewable owner-checked leases. Completed action keys prevent ordinary replay, but the external side effect and its completion write cannot be atomic: actions are therefore **at-least-once** and should pass `ActionContext.idempotencyKey()` to systems that support deduplication.
 
 Redis Pub/Sub is transient. PostgreSQL is the durable source of execution and audit state. Keep clocks synchronized, protect infrastructure with authentication, and back up PostgreSQL before migration-bearing upgrades.
+
+Orchestra is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE).

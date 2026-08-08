@@ -58,6 +58,18 @@ public final class InMemoryStores implements DefinitionRepository, ExecutionRepo
     }
 
     @Override
+    public synchronized void replaceAll(Collection<EventDefinition> replacement) {
+        java.util.Map<String, EventDefinition> next = new java.util.HashMap<>();
+        for (EventDefinition definition : replacement) {
+            if (next.put(definition.id(), definition) != null) {
+                throw new IllegalArgumentException("Duplicate definition: " + definition.id());
+            }
+        }
+        definitions.clear();
+        definitions.putAll(next);
+    }
+
+    @Override
     public void create(EventExecution execution) {
         if (executions.putIfAbsent(execution.id(), execution) != null) {
             throw new IllegalStateException("Duplicate execution: " + execution.id());

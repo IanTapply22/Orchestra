@@ -27,4 +27,11 @@ public interface DefinitionRepository {
      * @return snapshot of all known definitions
      */
     Collection<EventDefinition> findAll();
+
+    /**
+     * Atomically replaces the complete definition snapshot.
+     *
+     * @param definitions fully validated replacement definitions
+     */
+    void replaceAll(Collection<EventDefinition> definitions);
 }

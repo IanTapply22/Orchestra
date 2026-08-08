@@ -1,18 +1,27 @@
 import com.github.spotbugs.snom.SpotBugsExtension
 import com.github.spotbugs.snom.SpotBugsTask
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.jvm.tasks.Jar
+import org.gradle.plugins.signing.SigningExtension
 
 plugins {
     base
     jacoco
     id("com.diffplug.spotless") version "8.9.0"
     id("com.github.spotbugs") version "6.5.10" apply false
+    id("org.cyclonedx.bom") version "3.4.0"
     id("xyz.jpenilla.run-paper") version "3.0.2" apply false
 }
 
 allprojects {
     group = providers.gradleProperty("group").get()
-    version = providers.gradleProperty("version").get()
+    version =
+        providers
+            .environmentVariable("ORCHESTRA_VERSION")
+            .orElse(providers.gradleProperty("version"))
+            .map { it.removePrefix("v") }
+            .get()
     description = providers.gradleProperty("description").get()
 
     repositories {
@@ -66,6 +75,53 @@ subprojects {
         reports {
             html.required = true
             xml.required = true
+        }
+    }
+
+    pluginManager.withPlugin("maven-publish") {
+        apply(plugin = "signing")
+        extensions.configure<PublishingExtension> {
+            publications.withType<MavenPublication>().configureEach {
+                pom {
+                    licenses {
+                        license {
+                            name = "GNU Affero General Public License v3.0 or later"
+                            url = "https://www.gnu.org/licenses/agpl-3.0.html"
+                            distribution = "repo"
+                        }
+                    }
+                    scm {
+                        connection = "scm:git:https://github.com/IanTapply22/Orchestra.git"
+                        developerConnection = "scm:git:ssh://git@github.com/IanTapply22/Orchestra.git"
+                        url = "https://github.com/IanTapply22/Orchestra"
+                    }
+                }
+            }
+            repositories {
+                maven {
+                    name = "GitHubPackages"
+                    val repository =
+                        providers
+                            .environmentVariable("GITHUB_REPOSITORY")
+                            .orElse("IanTapply22/Orchestra")
+                            .get()
+                            .lowercase()
+                    url = uri("https://maven.pkg.github.com/$repository")
+                    credentials {
+                        username = providers.environmentVariable("GITHUB_ACTOR").orNull
+                        password = providers.environmentVariable("GITHUB_TOKEN").orNull
+                    }
+                }
+            }
+        }
+        extensions.configure<SigningExtension> {
+            val signingKey = providers.environmentVariable("SIGNING_KEY")
+            val signingPassword = providers.environmentVariable("SIGNING_PASSWORD")
+            setRequired(signingKey.isPresent)
+            if (signingKey.isPresent) {
+                useInMemoryPgpKeys(signingKey.get(), signingPassword.orNull)
+            }
+            sign(project.extensions.getByType<PublishingExtension>().publications)
         }
     }
 }
@@ -198,6 +254,12 @@ tasks.register("jar") {
 tasks.register("runServer") {
     group = "run paper"
     dependsOn(":orchestra-distribution:runServer")
+}
+
+tasks.register("validateEvents") {
+    group = "verification"
+    description = "Validates event YAML files; override the directory with -Porchestra.eventsDir=<path>."
+    dependsOn(":orchestra-platform-paper:validateEvents")
 }
 
 tasks.register<Exec>("installGitHooks") {

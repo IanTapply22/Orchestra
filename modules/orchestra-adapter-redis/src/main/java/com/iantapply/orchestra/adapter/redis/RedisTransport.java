@@ -66,6 +66,20 @@ public final class RedisTransport implements NetworkTransport {
         return subscription;
     }
 
+    /**
+     * Checks whether Redis accepts a short authenticated PING request.
+     *
+     * @return {@code true} when Redis replies with PONG
+     */
+    public boolean isReachable() {
+        if (!open.get()) return false;
+        try (var connection = new RespConnection(uri, Duration.ofSeconds(2))) {
+            return "PONG".equals(connection.command(RespConnection.strings("PING")));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     @Override
     public void close() {
         if (open.compareAndSet(true, false)) {
