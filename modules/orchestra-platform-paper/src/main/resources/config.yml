@@ -1,0 +1,38 @@
+server:
+  id: "survival-1"
+  groups: ["survival"]
+  tags:
+    game: "survival"
+    region: "na-east"
+
+engine:
+  workers: 4
+  queue-capacity: 256
+  poll-interval-ms: 250
+  poll-batch-size: 256
+  lease-seconds: 600
+  shutdown-seconds: 10
+
+postgres:
+  enabled: false
+  jdbc-url: "jdbc:postgresql://localhost:5432/orchestra"
+  username: "orchestra"
+  password: ""
+  password-environment-variable: "ORCHESTRA_POSTGRES_PASSWORD"
+  password-file: ""
+  maximum-pool-size: 8
+
+redis:
+  enabled: false
+  uri: "redis://localhost:6379/0"
+  uri-environment-variable: "ORCHESTRA_REDIS_URI"
+  uri-file: ""
+  namespace: "orchestra"
+
+web:
+  enabled: false
+  bind: "127.0.0.1"
+  port: 8787
+  token-environment-variable: "ORCHESTRA_WEB_TOKEN"
+  token-file: ""
+  tokens: {}

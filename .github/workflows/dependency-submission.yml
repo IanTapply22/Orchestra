@@ -23,8 +23,5 @@ jobs:
           java-version: ${{ vars.JAVA_VERSION }}
           distribution: ${{ vars.JAVA_DISTRIBUTION }}
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
-
       - name: Generate and submit dependency graph
         uses: gradle/actions/dependency-submission@v6
