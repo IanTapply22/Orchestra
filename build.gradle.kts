@@ -5,8 +5,8 @@ import org.gradle.jvm.tasks.Jar
 plugins {
     base
     jacoco
-    id("com.diffplug.spotless") version "8.8.0"
-    id("com.github.spotbugs") version "6.5.9" apply false
+    id("com.diffplug.spotless") version "8.9.0"
+    id("com.github.spotbugs") version "6.5.10" apply false
     id("xyz.jpenilla.run-paper") version "3.0.2" apply false
 }
 
