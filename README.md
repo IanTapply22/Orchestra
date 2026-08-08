@@ -36,7 +36,7 @@ Useful tasks:
 
 Pushing a semantic version tag such as `v1.2.3` runs the release workflow. It verifies the project, publishes `orchestra-api`, `orchestra-core`, and the combined `orchestra` artifact to GitHub Packages, then creates a GitHub Release containing the plugin JAR, SHA-256 checksum, and CycloneDX SBOM. Maven publications are PGP-signed when the `SIGNING_KEY` and `SIGNING_PASSWORD` secrets are configured; the release JAR also receives a GitHub build-provenance attestation.
 
-Set `API_BASELINE_VERSION` in CI to the latest released API version to make `check` reject incompatible public API changes. See [the dependency verification policy](docs/dependency-verification.md) for checksum maintenance.
+Set `API_BASELINE_VERSION` in CI to the latest released API version to make `check` reject incompatible public API changes.
 
 ## Quick start
 
