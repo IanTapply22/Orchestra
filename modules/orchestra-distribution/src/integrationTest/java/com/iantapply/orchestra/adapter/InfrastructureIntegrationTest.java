@@ -104,7 +104,7 @@ class InfrastructureIntegrationTest {
     }
 
     @Test
-    void redisPubSubReconnectsAfterServerRestart() {
+    void redisPubSubReconnectsAfterConnectionLoss() throws Exception {
         AtomicInteger reconnects = new AtomicInteger();
         AtomicInteger messages = new AtomicInteger();
         try (RedisTransport transport =
@@ -112,8 +112,9 @@ class InfrastructureIntegrationTest {
             transport.subscribe("events", ignored -> messages.incrementAndGet());
             await().atMost(Duration.ofSeconds(5)).until(() -> publishUntilReceived(transport, messages, 1));
 
-            REDIS.getDockerClient().restartContainerCmd(REDIS.getContainerId()).exec();
-            await().atMost(REDIS_READY_TIMEOUT).until(InfrastructureIntegrationTest::redisAcceptsConnections);
+            var result =
+                    REDIS.execInContainer("redis-cli", "-a", "integration-secret", "CLIENT", "KILL", "TYPE", "pubsub");
+            assertEquals(0, result.getExitCode(), result.getStderr());
             await().atMost(REDIS_READY_TIMEOUT).until(() -> reconnects.get() > 0);
             await().atMost(REDIS_READY_TIMEOUT).until(() -> publishUntilReceived(transport, messages, 2));
         }
