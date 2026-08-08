@@ -1,0 +1,38 @@
+# Copy this file into the adjacent events directory to enable it.
+schema-version: 1
+id: maintenance_countdown
+display-name: "Maintenance Countdown"
+
+targets:
+  all-online: true
+
+stages:
+  - id: fifteen_minute_warning
+    duration: 10m
+    actions:
+      - broadcast: "<gold>Network maintenance begins in 15 minutes."
+
+  - id: five_minute_warning
+    duration: 4m
+    actions:
+      - title: "<yellow>Maintenance in 5 minutes"
+
+  - id: one_minute_warning
+    duration: 1m
+    actions:
+      - action_bar: "<red>Maintenance begins in 1 minute."
+
+  - id: maintenance_window
+    duration: 30m
+    actions:
+      - id: close_local_joins
+        type: toggle_joins
+        value: false
+      - broadcast: "<red>Maintenance is now in progress."
+
+  - id: reopen
+    actions:
+      - id: reopen_local_joins
+        type: toggle_joins
+        value: true
+      - broadcast: "<green>Maintenance is complete. Thank you for waiting!"

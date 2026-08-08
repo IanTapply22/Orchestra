@@ -1,0 +1,41 @@
+# Replace the example console commands with those supplied by your economy/XP plugin.
+schema-version: 1
+id: weekend_multiplier
+display-name: "Weekend Multiplier"
+
+schedule:
+  cron: "0 18 * * FRI"
+  timezone: "America/Toronto"
+
+targets:
+  groups: [survival]
+
+stages:
+  - id: announce
+    duration: 5m
+    actions:
+      - broadcast: "<gold>The weekend multiplier starts in 5 minutes!"
+
+  - id: enable_multiplier
+    duration: 48h
+    actions:
+      - type: set_variable
+        key: weekend_multiplier
+        value: 2
+      - id: enable_xp_command
+        type: command
+        execute: "quests multiplier 2"
+        retry:
+          max-attempts: 3
+          initial-delay: 1s
+          multiplier: 2
+          maximum-delay: 10s
+      - broadcast: "<green>The weekend multiplier is now active!"
+
+  - id: disable_multiplier
+    actions:
+      - type: set_variable
+        key: weekend_multiplier
+        value: 1
+      - command: "quests multiplier 1"
+      - broadcast: "<yellow>The weekend multiplier has ended."

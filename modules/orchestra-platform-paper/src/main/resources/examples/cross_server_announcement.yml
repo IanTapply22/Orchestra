@@ -1,0 +1,17 @@
+# all-online causes every participating Paper/Folia server to run the announcement.
+schema-version: 1
+id: cross_server_announcement
+display-name: "Cross-Server Announcement"
+
+schedule:
+  cron: "0 12 * * *"
+  timezone: "UTC"
+
+targets:
+  all-online: true
+
+stages:
+  - id: network_message
+    actions:
+      - broadcast: "<aqua>Welcome to the network! You are playing on <white>{server}</white>."
+      - action_bar: "<gray>Event: {event_id}"

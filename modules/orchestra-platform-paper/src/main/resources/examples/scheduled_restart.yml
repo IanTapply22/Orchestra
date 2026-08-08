@@ -1,0 +1,38 @@
+# Review the schedule and verify that your server provides a restart command before enabling.
+# A process supervisor should bring the server back after it exits.
+schema-version: 1
+id: scheduled_restart
+display-name: "Scheduled Restart"
+
+schedule:
+  cron: "0 4 * * *"
+  timezone: "UTC"
+
+targets:
+  all-online: true
+
+stages:
+  - id: five_minute_warning
+    duration: 4m
+    actions:
+      - broadcast: "<gold>This server will restart in 5 minutes."
+
+  - id: one_minute_warning
+    duration: 1m
+    actions:
+      - title: "<yellow>Restarting in 1 minute"
+
+  - id: restart
+    actions:
+      - id: close_local_joins
+        type: toggle_joins
+        value: false
+      - broadcast: "<red>Restarting now..."
+      - id: restart_server
+        type: command
+        execute: "restart"
+        retry:
+          max-attempts: 1
+          initial-delay: 1s
+          multiplier: 1
+          maximum-delay: 1s

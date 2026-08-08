@@ -16,7 +16,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /** Installs bundled examples and validates atomically reloadable event YAML files. */
 public final class EventDefinitionDirectory {
-    private static final List<String> BUNDLED_EXAMPLES = List.of("weekend_double_xp.yml");
+    private static final List<String> BUNDLED_EVENTS = List.of("weekend_double_xp.yml");
+    private static final List<String> BUNDLED_LIBRARY = List.of(
+            "maintenance_countdown.yml",
+            "weekend_multiplier.yml",
+            "cross_server_announcement.yml",
+            "scheduled_restart.yml",
+            "conditional_event_with_retries.yml");
 
     private final JavaPlugin plugin;
 
@@ -37,7 +43,10 @@ public final class EventDefinitionDirectory {
         Path directory = plugin.getDataFolder().toPath().resolve("events");
         try {
             Files.createDirectories(directory);
-            installExamples(directory);
+            installResources(directory, "events/", BUNDLED_EVENTS);
+            Path examples = plugin.getDataFolder().toPath().resolve("examples");
+            Files.createDirectories(examples);
+            installResources(examples, "examples/", BUNDLED_LIBRARY);
             return validateDirectory(directory);
         } catch (IOException failure) {
             return new ValidationReport(List.of(), List.of("Cannot read event directory: " + failure.getMessage()));
@@ -78,11 +87,11 @@ public final class EventDefinitionDirectory {
         return new ValidationReport(List.copyOf(definitions), List.copyOf(errors));
     }
 
-    private void installExamples(Path directory) throws IOException {
-        for (String fileName : BUNDLED_EXAMPLES) {
+    private void installResources(Path directory, String resourceDirectory, List<String> fileNames) throws IOException {
+        for (String fileName : fileNames) {
             Path destination = directory.resolve(fileName);
             if (Files.exists(destination)) continue;
-            try (var input = plugin.getResource("events/" + fileName)) {
+            try (var input = plugin.getResource(resourceDirectory + fileName)) {
                 if (input != null) Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
             }
         }

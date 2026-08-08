@@ -1,0 +1,29 @@
+# Replace the webhook URL before enabling this example.
+schema-version: 1
+id: conditional_event_with_retries
+display-name: "Conditional Event with Retries"
+
+schedule:
+  cron: "0 20 * * SAT"
+  timezone: "UTC"
+
+targets:
+  groups: [survival]
+
+stages:
+  - id: start_when_populated
+    timeout: 15s
+    conditions:
+      - type: online_players_at_least
+        count: 10
+    actions:
+      - broadcast: "<green>A populated-server bonus event is starting!"
+      - id: notify_discord
+        type: discord_webhook
+        url: "https://discord.com/api/webhooks/replace-me"
+        message: "Orchestra started {event_id} on {server} (execution {execution_id})."
+        retry:
+          max-attempts: 5
+          initial-delay: 1s
+          multiplier: 2
+          maximum-delay: 30s

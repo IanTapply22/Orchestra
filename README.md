@@ -48,6 +48,18 @@ Set `API_BASELINE_VERSION` in CI to the latest released API version to make `che
 
 The included `weekend_double_xp.yml` demonstrates a recurring, targeted, multi-stage event.
 
+### Example library
+
+On first startup, Orchestra writes safe, inactive templates to `plugins/Orchestra/examples/`:
+
+- `maintenance_countdown.yml`
+- `weekend_multiplier.yml`
+- `cross_server_announcement.yml`
+- `scheduled_restart.yml`
+- `conditional_event_with_retries.yml`
+
+Review a template's schedule, targets, commands, and placeholder secrets, then copy it into `plugins/Orchestra/events/` to enable it. Files in `examples/` are never loaded or executed directly. The scheduled-restart template is intentionally opt-in and assumes an external process supervisor will restart the server.
+
 ## How it works
 
 ```text
