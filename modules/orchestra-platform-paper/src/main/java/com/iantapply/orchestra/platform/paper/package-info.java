@@ -1,2 +1,2 @@
-/** Paper plugin lifecycle, targeting, and server-local behavior. */
+/** Thin Paper lifecycle/configuration adapters; orchestration and administration remain platform-neutral. */
 package com.iantapply.orchestra.platform.paper;

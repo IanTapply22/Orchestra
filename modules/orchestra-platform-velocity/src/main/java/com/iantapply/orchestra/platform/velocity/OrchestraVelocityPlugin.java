@@ -75,7 +75,11 @@ public final class OrchestraVelocityPlugin {
         if (transport != null) transport.close();
     }
 
-    /** Returns proxy-side operational metrics for integrations. */
+    /**
+     * Returns proxy-side operational metrics for integrations.
+     *
+     * @return proxy metrics registry
+     */
     public MetricsRegistry metrics() {
         return metrics;
     }

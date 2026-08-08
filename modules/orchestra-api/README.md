@@ -98,6 +98,16 @@ orchestra.execution(executionId).ifPresent(execution -> {
 });
 ```
 
+List current work or obtain a consistently formatted operational snapshot:
+
+```java
+orchestra.activeExecutions(100).forEach(execution ->
+        getLogger().info(execution.id() + " " + execution.status()));
+
+OrchestraStatus status = orchestra.status();
+getLogger().info(status.summary());
+```
+
 Control methods return `false` if the execution does not exist or its optimistic update loses a race. An illegal state transition throws `IllegalStateException`.
 
 ```java

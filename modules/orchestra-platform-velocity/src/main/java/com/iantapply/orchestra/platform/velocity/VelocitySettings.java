@@ -1,5 +1,6 @@
 package com.iantapply.orchestra.platform.velocity;
 
+import com.iantapply.orchestra.configuration.ConfigurationValueResolver;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.URI;
@@ -27,31 +28,23 @@ record VelocitySettings(String proxyId, URI redisUri, String redisNamespace) {
             values.load(reader);
         }
 
-        String proxyId = systemOrProperty("orchestra.proxy.id", values, "proxy.id");
+        ConfigurationValueResolver resolver =
+                new ConfigurationValueResolver(dataDirectory, environment, System::getProperty);
+        String proxyId = resolver.resolve("orchestra.proxy.id", null, null, values.getProperty("proxy.id"))
+                .orElse("");
         validateProxyId(proxyId);
-        String namespace = systemOrProperty("orchestra.redis.namespace", values, "redis.namespace");
+        String namespace = resolver.resolve(
+                        "orchestra.redis.namespace", null, null, values.getProperty("redis.namespace"))
+                .orElse("");
         if (namespace.isBlank() || namespace.length() > 128) {
             throw new IllegalArgumentException("redis.namespace must contain between 1 and 128 characters");
         }
 
-        String redisValue = System.getProperty("orchestra.redis.uri");
         String environmentName = values.getProperty("redis.uri-environment-variable", "ORCHESTRA_REDIS_URI")
                 .trim();
-        if (redisValue == null && !environmentName.isEmpty())
-            redisValue = blankToNull(environment.get(environmentName));
         String secretFile = values.getProperty("redis.uri-file", "").trim();
-        if (redisValue == null && !secretFile.isEmpty()) {
-            Path secretPath = Path.of(secretFile);
-            if (!secretPath.isAbsolute()) secretPath = dataDirectory.resolve(secretPath);
-            if (Files.notExists(secretPath)) {
-                throw new IllegalArgumentException("redis.uri-file does not exist: " + secretPath);
-            }
-            redisValue = blankToNull(Files.readString(secretPath).trim());
-        }
-        if (redisValue == null) redisValue = blankToNull(values.getProperty("redis.uri"));
-        if (redisValue == null) {
-            throw new IllegalArgumentException("Redis URI is missing; set ORCHESTRA_REDIS_URI or redis.uri-file");
-        }
+        String redisValue = resolver.require(
+                "Redis URI", "orchestra.redis.uri", environmentName, secretFile, values.getProperty("redis.uri"));
 
         URI redisUri;
         try {
@@ -70,11 +63,6 @@ record VelocitySettings(String proxyId, URI redisUri, String redisNamespace) {
             }
             Files.copy(input, destination);
         }
-    }
-
-    private static String systemOrProperty(String systemName, Properties values, String propertyName) {
-        String system = System.getProperty(systemName);
-        return system == null ? values.getProperty(propertyName, "").trim() : system.trim();
     }
 
     private static void validateProxyId(String proxyId) {
@@ -101,9 +89,5 @@ record VelocitySettings(String proxyId, URI redisUri, String redisNamespace) {
         if (path != null && !path.isBlank() && !path.matches("/[0-9]+")) {
             throw new IllegalArgumentException("Redis URI path must be a numeric database such as /0");
         }
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
     }
 }

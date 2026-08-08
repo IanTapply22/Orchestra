@@ -113,4 +113,19 @@ public interface OrchestraService {
      * @return immutable definition snapshot
      */
     Collection<EventDefinition> definitions();
+
+    /**
+     * Returns active execution snapshots up to the requested limit.
+     *
+     * @param limit maximum results
+     * @return immutable active execution snapshot
+     */
+    Collection<EventExecution> activeExecutions(int limit);
+
+    /**
+     * Returns current platform-neutral administration status.
+     *
+     * @return current status snapshot
+     */
+    OrchestraStatus status();
 }

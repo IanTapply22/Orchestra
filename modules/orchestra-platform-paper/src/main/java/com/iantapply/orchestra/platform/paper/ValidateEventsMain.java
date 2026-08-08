@@ -15,7 +15,8 @@ public final class ValidateEventsMain {
     static void main(String[] arguments) throws Exception {
         if (arguments.length != 1) throw new IllegalArgumentException("Expected one event directory path");
         var report = EventDefinitionDirectory.validateDirectory(Path.of(arguments[0]));
-        System.out.println(report.summary());
-        if (!report.valid()) throw new IllegalArgumentException(report.summary());
+        String summary = report.summary();
+        System.out.println(summary);
+        if (!report.valid()) throw new IllegalArgumentException(summary);
     }
 }

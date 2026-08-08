@@ -13,6 +13,7 @@ dependencies {
 val generatedSources = layout.buildDirectory.dir("generated/sources/orchestra")
 val generateBuildInfo =
     tasks.register<Copy>("generateBuildInfo") {
+        inputs.property("orchestraVersion", project.version.toString())
         from("src/main/templates")
         into(generatedSources)
         expand("version" to project.version.toString())
