@@ -10,7 +10,7 @@ plugins {
     id("com.diffplug.spotless") version "8.9.0"
     id("com.github.spotbugs") version "6.5.10" apply false
     id("org.cyclonedx.bom") version "3.4.0"
-    id("xyz.jpenilla.run-paper") version "3.0.2" apply false
+    id("xyz.jpenilla.run-paper") version "3.1.0" apply false
 }
 
 allprojects {
