@@ -38,6 +38,12 @@ Pushing a semantic version tag such as `v1.2.3` runs the release workflow. It ve
 
 Set `API_BASELINE_VERSION` in CI to the latest released API version to make `check` reject incompatible public API changes.
 
+To trigger the publishing workflow, you must run the following:
+```shell
+git tag -a v<version> -m "Orchestra <version>"
+git push origin v<version>
+```
+
 ## Quick start
 
 1. Build and install the JAR.
