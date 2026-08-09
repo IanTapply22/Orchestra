@@ -12,15 +12,12 @@ permissions:
 
 concurrency:
   group: javadoc-pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Build and deploy Javadocs
+  build:
+    name: Build aggregate Javadocs
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repository
@@ -35,10 +32,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Generate Javadocs with Gradle
-        run: bash ./gradlew javadoc --no-daemon
+      - name: Generate aggregate Javadocs with Gradle
+        run: ./gradlew javadoc --no-daemon
 
       - name: Prepare Pages content
+        shell: bash
         run: |
           mkdir -p build/pages/javadoc
           cp -R build/docs/javadoc/. build/pages/javadoc/
@@ -52,6 +50,15 @@ jobs:
         with:
           path: build/pages
 
+  deploy:
+    name: Deploy aggregate Javadocs
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
       - name: Deploy Javadocs
         id: deployment
         uses: actions/deploy-pages@v5
