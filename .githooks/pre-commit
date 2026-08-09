@@ -5,5 +5,16 @@ set -eu
 repository_root="$(git rev-parse --show-toplevel)"
 cd "$repository_root"
 
-echo "Running Orchestra lint checks..."
-sh ./gradlew lint --no-daemon
+staged_paths="$(mktemp)"
+trap 'rm -f "$staged_paths"' EXIT HUP INT TERM
+
+git diff --cached --name-only --diff-filter=ACMR -z > "$staged_paths"
+
+echo "Formatting Orchestra with Spotless..."
+sh ./gradlew spotlessApply --no-daemon
+
+if [ -s "$staged_paths" ]; then
+    xargs -0 git add -- < "$staged_paths"
+fi
+
+echo "Spotless changes to staged files were added to the commit."
