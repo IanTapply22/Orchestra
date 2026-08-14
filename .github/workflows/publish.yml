@@ -61,7 +61,7 @@ jobs:
         run: sha256sum "build/libs/Orchestra-${ORCHESTRA_VERSION}.jar" > "build/libs/Orchestra-${ORCHESTRA_VERSION}.jar.sha256"
 
       - name: Attest plugin artifact
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: build/libs/Orchestra-${{ env.ORCHESTRA_VERSION }}.jar
 
